@@ -8,7 +8,10 @@ export class FakeMetadataCache {
   getCache() { return { tags: [] }; }
 }
 export class FakeVault {
-  on() { return {}; }
+  private handlers: Record<string, Function[]> = {};
+  on(evt: string, cb: Function) { (this.handlers[evt] ??= []).push(cb); return { evt, cb }; }
+  offref() {}
+  trigger(evt: string) { (this.handlers[evt] ?? []).forEach((h) => h()); }
 }
 export class FakeApp {
   metadataCache = new FakeMetadataCache();
