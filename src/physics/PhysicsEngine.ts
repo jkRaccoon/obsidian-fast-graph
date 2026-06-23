@@ -16,6 +16,7 @@ export class PhysicsEngine {
   private force: Float32Array;
   private pinned: Uint8Array;
   private scratch = new Float32Array(3);
+  private tree: Octree;  // 재사용 — tick마다 new 하지 않음
 
   constructor(opts: { count: number; edges: Int32Array; positions: Float32Array; params: ForceParams }) {
     this.count = opts.count;
@@ -25,6 +26,7 @@ export class PhysicsEngine {
     this.params = { ...opts.params };
     this.force = new Float32Array(opts.count * 3);
     this.pinned = new Uint8Array(opts.count);
+    this.tree = new Octree(opts.count);  // 한 번만 생성, tick마다 rebuild
   }
 
   get positions(): Float32Array {
@@ -54,11 +56,11 @@ export class PhysicsEngine {
     const f = this.force;
     f.fill(0);
 
-    // 1) 척력 (Barnes-Hut)
-    const tree = new Octree(this.pos, this.count);
+    // 1) 척력 (Barnes-Hut) — 핫 루프에서 JS 객체 생성 금지: tree 재사용
+    this.tree.rebuild(this.pos, this.count);
     const s = this.scratch;
     for (let i = 0; i < this.count; i++) {
-      tree.computeForce(i, theta, repulsion, s);
+      this.tree.computeForce(i, theta, repulsion, s);
       f[i * 3] += s[0]; f[i * 3 + 1] += s[1]; f[i * 3 + 2] += s[2];
     }
 
