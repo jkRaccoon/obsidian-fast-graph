@@ -15,7 +15,7 @@ export interface GraphModel {
 function edgeKey(a: number, b: number): number {
   const lo = Math.min(a, b);
   const hi = Math.max(a, b);
-  // 안전한 무방향 키 (노드 수 < 2^26 가정)
+  // 안전한 무방향 키 (노드 수 < 10,000 가정)
   return lo * 67108864 + hi;
 }
 
@@ -85,7 +85,7 @@ export function seedPositions(model: GraphModel, seed: number): void {
   const rand = mulberry32(seed);
   const radius = Math.cbrt(model.count) * 20 + 1;
   for (let i = 0; i < model.count; i++) {
-    // 구 표면 균등 분포
+    // 구 내부 균등 분포 (체적 샘플링)
     const u = rand() * 2 - 1;
     const theta = rand() * Math.PI * 2;
     const r = radius * Math.cbrt(rand());
