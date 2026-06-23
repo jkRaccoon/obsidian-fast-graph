@@ -10,7 +10,7 @@ export class GraphDataProvider {
   private boundRefs: BoundRef[] = [];
   // Per-subscription timers are held in closure locals inside onChange().
   // This set lets dispose() cancel any pending debounced calls.
-  private timers: Set<ReturnType<typeof setTimeout>> = new Set();
+  private timers: Set<number> = new Set();
 
   constructor(private app: App, private settings: RenderSettings) {}
 
@@ -45,10 +45,10 @@ export class GraphDataProvider {
   onChange(cb: () => void): () => void {
     // Each subscription gets its own timer to avoid races when multiple
     // subscribers co-exist on the same GraphDataProvider instance.
-    let timer: ReturnType<typeof setTimeout> | null = null;
+    let timer: number | null = null;
     const debounced = () => {
-      if (timer) { clearTimeout(timer); this.timers.delete(timer); }
-      timer = setTimeout(() => { this.timers.delete(timer!); cb(); }, 300);
+      if (timer) { window.clearTimeout(timer); this.timers.delete(timer); }
+      timer = window.setTimeout(() => { this.timers.delete(timer!); cb(); }, 300);
       this.timers.add(timer);
     };
     const localRefs: BoundRef[] = [
@@ -68,7 +68,7 @@ export class GraphDataProvider {
   }
 
   dispose(): void {
-    for (const t of this.timers) clearTimeout(t);
+    for (const t of this.timers) window.clearTimeout(t);
     this.timers.clear();
     for (const br of this.boundRefs) this._offref(br);
     this.boundRefs = [];

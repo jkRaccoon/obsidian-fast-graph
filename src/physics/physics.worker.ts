@@ -1,6 +1,5 @@
 import { PhysicsEngine } from "./PhysicsEngine";
 import type { MainToWorker, WorkerToMain } from "./protocol";
-import type { ForceParams } from "../types";
 
 let engine: PhysicsEngine | null = null;
 let timer: ReturnType<typeof setInterval> | null = null;
@@ -36,7 +35,7 @@ self.onmessage = (ev: MessageEvent<MainToWorker>) => {
       const positions = new Float32Array(m.positions);
       const edges = new Int32Array(m.edges);
       const groupId = new Uint16Array(m.groupId);
-      engine = new PhysicsEngine({ count: m.count, edges, positions, groupId, params: m.params as ForceParams });
+      engine = new PhysicsEngine({ count: m.count, edges, positions, groupId, params: m.params });
       startLoop();
       break;
     }

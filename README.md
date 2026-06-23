@@ -59,7 +59,7 @@ yarn install
 yarn build
 ```
 
-Then copy `main.js` and `manifest.json` into your vault at:
+Then copy `main.js`, `manifest.json`, and `styles.css` into your vault at:
 
 ```
 <your vault>/.obsidian/plugins/fast-graph/
@@ -138,7 +138,7 @@ yarn install
 yarn build
 ```
 
-생성된 `main.js`, `manifest.json`을 vault의 다음 경로에 복사:
+생성된 `main.js`, `manifest.json`, `styles.css`를 vault의 다음 경로에 복사:
 
 ```
 <vault>/.obsidian/plugins/fast-graph/

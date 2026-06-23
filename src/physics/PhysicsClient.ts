@@ -52,10 +52,10 @@ export class PhysicsClient {
       if (!this.fallback) return;
       this.fallback.tick();
       this.opts.onTick(this.fallback.positions, this.fallback.alpha);
-      if (this.fallback.alpha >= this.fallback.alphaMin) this.raf = requestAnimationFrame(loop);
+      if (this.fallback.alpha >= this.fallback.alphaMin) this.raf = window.requestAnimationFrame(loop);
       else { this.raf = 0; }
     };
-    this.raf = requestAnimationFrame(loop);
+    this.raf = window.requestAnimationFrame(loop);
   }
 
   private send(msg: MainToWorker): void {
@@ -88,10 +88,10 @@ export class PhysicsClient {
         if (!this.fallback) return;
         this.fallback.tick();
         this.opts.onTick(this.fallback.positions, this.fallback.alpha);
-        if (this.fallback.alpha >= this.fallback.alphaMin) this.raf = requestAnimationFrame(loop);
+        if (this.fallback.alpha >= this.fallback.alphaMin) this.raf = window.requestAnimationFrame(loop);
         else this.raf = 0;
       };
-      this.raf = requestAnimationFrame(loop);
+      this.raf = window.requestAnimationFrame(loop);
     }
   }
 
@@ -101,7 +101,7 @@ export class PhysicsClient {
 
   dispose(): void {
     this.disposeWorker();
-    if (this.raf) cancelAnimationFrame(this.raf);
+    if (this.raf) window.cancelAnimationFrame(this.raf);
     this.raf = 0;
     this.fallback = null;
   }

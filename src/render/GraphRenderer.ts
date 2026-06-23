@@ -93,13 +93,13 @@ export class GraphRenderer {
         this.edges.updatePositions(this.latest);
       }
       this.renderer.render(this.scene, this.camera);
-      this.raf = requestAnimationFrame(loop);
+      this.raf = window.requestAnimationFrame(loop);
     };
-    this.raf = requestAnimationFrame(loop);
+    this.raf = window.requestAnimationFrame(loop);
   }
 
   stop(): void {
-    if (this.raf) cancelAnimationFrame(this.raf);
+    if (this.raf) window.cancelAnimationFrame(this.raf);
     this.raf = 0;
   }
 

@@ -32,17 +32,10 @@ export class Graph3DView extends ItemView {
   async onOpen(): Promise<void> {
     const root = this.contentEl;
     root.empty();
-    root.style.position = "relative";
-    root.style.height = "100%";
+    root.addClass("fast-graph-3d-root");
 
+    // 정적 스타일은 styles.css의 .fast-graph-3d-label에 정의됨
     this.label = root.createDiv({ cls: "fast-graph-3d-label" });
-    this.label.style.position = "absolute";
-    this.label.style.pointerEvents = "none";
-    this.label.style.padding = "2px 6px";
-    this.label.style.background = "var(--background-secondary)";
-    this.label.style.borderRadius = "4px";
-    this.label.style.display = "none";
-    this.label.style.zIndex = "10";
 
     this.build(root);
 
@@ -70,8 +63,7 @@ export class Graph3DView extends ItemView {
       key: String(i),
       color: PALETTE[i % PALETTE.length],
     }));
-    const container = root.createDiv();
-    container.style.height = "100%";
+    const container = root.createDiv({ cls: "fast-graph-3d-canvas" });
 
     this.renderer = new GraphRenderer(container, model, groups, this.settings);
     this.renderer.start();
@@ -121,7 +113,7 @@ export class Graph3DView extends ItemView {
       const id = this.renderer.pickAt(ev.clientX, ev.clientY);
       if (id === null) {
         this.renderer.setHoverWithNeighbors(null);
-        if (this.label) this.label.style.display = "none";
+        this.label?.removeClass("is-visible");
         return;
       }
       // Highlight hovered node and its neighbors in the 3D scene.
@@ -129,14 +121,13 @@ export class Graph3DView extends ItemView {
       this.renderer.setHoverWithNeighbors(highlighted);
       if (this.settings.showLabels && this.label) {
         this.label.textContent = this.model.paths[id];
-        this.label.style.left = ev.offsetX + 12 + "px";
-        this.label.style.top = ev.offsetY + 12 + "px";
-        this.label.style.display = "block";
+        this.label.setCssStyles({ left: `${ev.offsetX + 12}px`, top: `${ev.offsetY + 12}px` });
+        this.label.addClass("is-visible");
       }
     });
     container.addEventListener("mouseleave", () => {
       this.renderer?.setHoverWithNeighbors(null);
-      if (this.label) this.label.style.display = "none";
+      this.label?.removeClass("is-visible");
     });
     container.addEventListener("click", (ev) => {
       if (!this.renderer || !this.model) return;
