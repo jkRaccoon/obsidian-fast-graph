@@ -51,6 +51,7 @@ export class PhysicsClient {
       this.fallback.tick();
       this.opts.onTick(this.fallback.positions, this.fallback.alpha);
       if (this.fallback.alpha >= this.fallback.alphaMin) this.raf = requestAnimationFrame(loop);
+      else { this.raf = 0; }
     };
     this.raf = requestAnimationFrame(loop);
   }
