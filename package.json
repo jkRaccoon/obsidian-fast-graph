@@ -1,6 +1,6 @@
 {
   "name": "fast-graph-3d",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Fast 3D graph view for Obsidian",
   "main": "main.js",
   "packageManager": "yarn@3.6.4",
