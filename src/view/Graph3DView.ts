@@ -1,6 +1,6 @@
 import { ItemView, WorkspaceLeaf, TFile, Notice } from "obsidian";
 import { GraphDataProvider } from "../data/GraphDataProvider";
-import { computeGrouping } from "../data/grouping";
+import { PALETTE } from "../data/grouping";
 import { PhysicsClient } from "../physics/PhysicsClient";
 import { GraphRenderer } from "../render/GraphRenderer";
 import { extractLocalGraph } from "../interaction/localGraph";
@@ -59,12 +59,19 @@ export class Graph3DView extends ItemView {
     }
     this.model = model;
 
-    const tagsByPath = new Map<string, string[]>();
-    const grouping = computeGrouping(model.paths, tagsByPath, this.settings.groupBy);
+    // model.groupId is already populated correctly by GraphDataProvider.build()
+    // (including tag lookup). Derive the palette from the existing groupId instead
+    // of re-computing with an empty tagsByPath map.
+    const maxGroupId = model.groupId.reduce((m, id) => Math.max(m, id), 0);
+    const groups = Array.from({ length: maxGroupId + 1 }, (_, i) => ({
+      id: i,
+      key: String(i),
+      color: PALETTE[i % PALETTE.length],
+    }));
     const container = root.createDiv();
     container.style.height = "100%";
 
-    this.renderer = new GraphRenderer(container, model, grouping.groups, this.settings);
+    this.renderer = new GraphRenderer(container, model, groups, this.settings);
     this.renderer.start();
 
     this.physics = new PhysicsClient({
@@ -81,10 +88,8 @@ export class Graph3DView extends ItemView {
   private subgraph(full: GraphModel, rootPath: string): GraphModel {
     const keep = extractLocalGraph(full, rootPath, this.settings.localGraphDepth);
     // 인덱스 재매핑
-    const oldToNew = new Map<number, number>();
     const paths: string[] = [];
     for (const oldIdx of keep) {
-      oldToNew.set(oldIdx, paths.length);
       paths.push(full.paths[oldIdx]);
     }
     const resolved: Record<string, Record<string, number>> = {};
