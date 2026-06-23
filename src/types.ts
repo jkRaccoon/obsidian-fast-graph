@@ -15,11 +15,11 @@ export const FORCE_DEFAULTS: ForceParams = {
   repulsion: 30,
   linkStrength: 0.05,
   linkDistance: 30,
-  gravity: 0.008,           // 군집 분리를 위해 완화(기존 0.02)
+  gravity: 0.011,           // 군집 분리를 위해 완화(기존 0.02), 너무 벌어지지 않게 약간 상향
   damping: 0.9,
   theta: 0.8,
   groupCohesion: 0.08,
-  groupSeparation: 180,
+  groupSeparation: 100,
 };
 
 export interface RenderSettings {
