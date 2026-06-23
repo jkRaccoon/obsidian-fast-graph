@@ -11,5 +11,8 @@ yarn-error.log
 # obsidian
 data.json
 
+# superpowers 내부 산출물(스펙/계획) — GitHub 업로드 제외
+docs/superpowers/
+
 # misc
 .DS_Store
