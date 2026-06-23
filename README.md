@@ -62,7 +62,7 @@ yarn build
 Then copy `main.js` and `manifest.json` into your vault at:
 
 ```
-<your vault>/.obsidian/plugins/fast-graph-3d/
+<your vault>/.obsidian/plugins/fast-graph/
 ```
 
 Enable **Fast 3D Graph** under Settings → Community plugins. Desktop only.
@@ -141,7 +141,7 @@ yarn build
 생성된 `main.js`, `manifest.json`을 vault의 다음 경로에 복사:
 
 ```
-<vault>/.obsidian/plugins/fast-graph-3d/
+<vault>/.obsidian/plugins/fast-graph/
 ```
 
 설정 → 커뮤니티 플러그인에서 **Fast 3D Graph**를 켭니다. (데스크톱 전용)
