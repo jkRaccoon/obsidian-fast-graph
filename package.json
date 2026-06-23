@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Fast 3D graph view for Obsidian",
   "main": "main.js",
+  "packageManager": "yarn@3.6.4",
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "tsc --noEmit && node esbuild.config.mjs production",
