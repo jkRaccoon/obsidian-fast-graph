@@ -6,6 +6,8 @@ export class NodeLayer {
   private material: THREE.MeshBasicMaterial;
   private dummy = new THREE.Object3D();
   private sizes: Float32Array;
+  private hoverIndex: number | null = null;
+  private baseColors: Float32Array | null = null;
 
   constructor(count: number) {
     this.geometry = new THREE.SphereGeometry(1, 8, 6);
@@ -18,11 +20,36 @@ export class NodeLayer {
 
   setColors(groupId: Uint16Array, groups: { color: string }[]): void {
     const c = new THREE.Color();
-    for (let i = 0; i < groupId.length; i++) {
+    const count = groupId.length;
+    this.baseColors = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
       c.set(groups[groupId[i]]?.color ?? "#888888");
       this.mesh.setColorAt(i, c);
+      this.baseColors[i * 3] = c.r;
+      this.baseColors[i * 3 + 1] = c.g;
+      this.baseColors[i * 3 + 2] = c.b;
     }
     if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+  }
+
+  setHover(index: number | null): void {
+    if (this.hoverIndex === index) return;
+    const prev = this.hoverIndex;
+    this.hoverIndex = index;
+    if (!this.mesh.instanceColor || !this.baseColors) return;
+    const c = new THREE.Color();
+    // restore previous hovered node
+    if (prev !== null) {
+      c.setRGB(this.baseColors[prev * 3], this.baseColors[prev * 3 + 1], this.baseColors[prev * 3 + 2]);
+      this.mesh.setColorAt(prev, c);
+    }
+    // highlight new hovered node
+    if (index !== null) {
+      c.setRGB(this.baseColors[index * 3], this.baseColors[index * 3 + 1], this.baseColors[index * 3 + 2]);
+      c.lerp(new THREE.Color(0xffffff), 0.5);
+      this.mesh.setColorAt(index, c);
+    }
+    this.mesh.instanceColor.needsUpdate = true;
   }
 
   setSizes(degree: Uint16Array, base: number, scale: number): void {

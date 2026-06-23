@@ -56,6 +56,7 @@ export class GraphRenderer {
 
   setHover(index: number | null): void {
     this.hoverIndex = index;
+    this.nodes.setHover(index);
   }
 
   pickAt(clientX: number, clientY: number): number | null {
