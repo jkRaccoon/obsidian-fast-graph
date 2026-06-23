@@ -16,7 +16,6 @@ export class GraphRenderer {
   private picker: Picker;
   private raf = 0;
   private latest: Float32Array | null = null;
-  private hoverIndex: number | null = null;
 
   constructor(
     private container: HTMLElement,
@@ -55,7 +54,6 @@ export class GraphRenderer {
   }
 
   setHover(index: number | null): void {
-    this.hoverIndex = index;
     this.nodes.setHover(index);
   }
 

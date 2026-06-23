@@ -8,6 +8,7 @@ export class NodeLayer {
   private sizes: Float32Array;
   private hoverIndex: number | null = null;
   private baseColors: Float32Array | null = null;
+  private white = new THREE.Color(0xffffff);
 
   constructor(count: number) {
     this.geometry = new THREE.SphereGeometry(1, 8, 6);
@@ -46,7 +47,7 @@ export class NodeLayer {
     // highlight new hovered node
     if (index !== null) {
       c.setRGB(this.baseColors[index * 3], this.baseColors[index * 3 + 1], this.baseColors[index * 3 + 2]);
-      c.lerp(new THREE.Color(0xffffff), 0.5);
+      c.lerp(this.white, 0.5);
       this.mesh.setColorAt(index, c);
     }
     this.mesh.instanceColor.needsUpdate = true;
