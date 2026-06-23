@@ -28,13 +28,13 @@ Fast 3D Graph renders your whole vault as a 3D, real‑time, force‑directed gr
 
 A real vault settling into its 3D layout:
 
-<video src="sample.mp4" controls muted loop width="100%"></video>
+<video src="https://github.com/jkRaccoon/obsidian-fast-graph/raw/main/sample.mp4" controls muted loop width="100%"></video>
 
 *(If the player doesn't load inline, [download/open sample.mp4](sample.mp4).)*
 
 20,000 nodes — still smooth:
 
-<video src="20k.mp4" controls muted loop width="100%"></video>
+<video src="https://github.com/jkRaccoon/obsidian-fast-graph/raw/main/20k.mp4" controls muted loop width="100%"></video>
 
 *(Or [open 20k.mp4](20k.mp4).)*
 
@@ -107,13 +107,13 @@ Fast 3D Graph는 vault 전체를 **실시간 3D force‑directed 그래프**로 
 
 실제 vault가 3D 레이아웃으로 자리 잡는 모습:
 
-<video src="sample.mp4" controls muted loop width="100%"></video>
+<video src="https://github.com/jkRaccoon/obsidian-fast-graph/raw/main/sample.mp4" controls muted loop width="100%"></video>
 
 *(인라인 플레이어가 안 보이면 [sample.mp4 열기](sample.mp4).)*
 
 2만 노드 — 그래도 부드럽습니다:
 
-<video src="20k.mp4" controls muted loop width="100%"></video>
+<video src="https://github.com/jkRaccoon/obsidian-fast-graph/raw/main/20k.mp4" controls muted loop width="100%"></video>
 
 *(또는 [20k.mp4 열기](20k.mp4).)*
 
