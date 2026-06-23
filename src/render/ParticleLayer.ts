@@ -62,6 +62,11 @@ export class ParticleLayer {
     this.points.renderOrder = 2;
   }
 
+  /** 파티클이 하나라도 활성인지(렌더 루프 유지 판단용). */
+  get active(): boolean {
+    return this.count > 0;
+  }
+
   /** 호버 노드와 이웃 목록으로 파티클을 구성. hovered가 null이면 비활성화. */
   setSource(hovered: number | null, neighbors: number[]): void {
     if (hovered === null || neighbors.length === 0) {
