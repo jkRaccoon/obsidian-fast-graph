@@ -2,22 +2,20 @@ import { PhysicsEngine } from "./PhysicsEngine";
 import type { MainToWorker, WorkerToMain } from "./protocol";
 
 let engine: PhysicsEngine | null = null;
-let timer: ReturnType<typeof setInterval> | null = null;
+let timer: number | null = null;
 
 function post(msg: WorkerToMain, transfer?: Transferable[]) {
   (self as unknown as Worker).postMessage(msg, transfer ?? []);
 }
 
 function stopLoop() {
-  // Web Worker 컨텍스트라 window가 없다 — clearInterval/setInterval 전역을 사용.
-  // eslint-disable-next-line obsidianmd/prefer-window-timers
-  if (timer !== null) { clearInterval(timer); timer = null; }
+  // Web Worker 컨텍스트라 window가 없어 self의 타이머 API를 사용한다.
+  if (timer !== null) { self.clearInterval(timer); timer = null; }
 }
 
 function startLoop() {
   if (timer !== null || !engine) return;
-  // eslint-disable-next-line obsidianmd/prefer-window-timers
-  timer = setInterval(() => {
+  timer = self.setInterval(() => {
     if (!engine) return;
     try {
       engine.tick();

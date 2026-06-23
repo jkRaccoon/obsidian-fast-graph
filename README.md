@@ -52,20 +52,13 @@ Because the simulation lives in a Web Worker, a heavy tick never stalls the view
 
 ### Installation
 
-Not yet in the community store. To install manually:
+Available in the Obsidian **Community plugins** store:
 
-```bash
-yarn install
-yarn build
-```
+1. Open **Settings → Community plugins** and turn off Restricted mode.
+2. Click **Browse**, search for **"Fast 3D Graph"**, and install.
+3. Enable it. (Desktop only.)
 
-Then copy `main.js`, `manifest.json`, and `styles.css` into your vault at:
-
-```
-<your vault>/.obsidian/plugins/fast-graph/
-```
-
-Enable **Fast 3D Graph** under Settings → Community plugins. Desktop only.
+> **Building from source (for development):** `yarn install && yarn build`, then copy `main.js`, `manifest.json`, and `styles.css` into `<your vault>/.obsidian/plugins/fast-graph/`.
 
 ### Usage
 
@@ -131,20 +124,13 @@ Fast 3D Graph는 vault 전체를 **실시간 3D force‑directed 그래프**로 
 
 ### 설치
 
-아직 커뮤니티 스토어에 없습니다. 수동 설치:
+Obsidian **커뮤니티 플러그인** 스토어에서 설치할 수 있습니다:
 
-```bash
-yarn install
-yarn build
-```
+1. **설정 → 커뮤니티 플러그인**에서 제한 모드를 끕니다.
+2. **탐색**을 눌러 **"Fast 3D Graph"**를 검색하고 설치합니다.
+3. 활성화합니다. (데스크톱 전용)
 
-생성된 `main.js`, `manifest.json`, `styles.css`를 vault의 다음 경로에 복사:
-
-```
-<vault>/.obsidian/plugins/fast-graph/
-```
-
-설정 → 커뮤니티 플러그인에서 **Fast 3D Graph**를 켭니다. (데스크톱 전용)
+> **소스에서 빌드(개발용):** `yarn install && yarn build` 후 `main.js`, `manifest.json`, `styles.css`를 `<vault>/.obsidian/plugins/fast-graph/`에 복사.
 
 ### 사용법
 
