@@ -10,13 +10,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "types": ["node"],
-    "baseUrl": ".",
-    "paths": {
-      "three": ["./types/three"],
-      "three/*": ["./types/three/*"],
-      "obsidian": ["./types/obsidian"]
-    }
+    "types": ["node"]
   },
   "include": ["src", "tests"]
 }
