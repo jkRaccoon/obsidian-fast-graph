@@ -7,6 +7,7 @@ export class NodeLayer {
   private dummy = new THREE.Object3D();
   private sizes: Float32Array;
   private hoverIndex: number | null = null;
+  private _prevHighlighted: Set<number> | undefined;
   private baseColors: Float32Array | null = null;
   private white = new THREE.Color(0xffffff);
   private _tmp = new THREE.Color();
@@ -35,21 +36,37 @@ export class NodeLayer {
   }
 
   setHover(index: number | null): void {
-    if (this.hoverIndex === index) return;
-    const prev = this.hoverIndex;
-    this.hoverIndex = index;
+    this.setHoverSet(index === null ? null : new Set([index]));
+  }
+
+  /** Highlight a set of node indices (hovered node + its neighbors). */
+  setHoverSet(indices: Set<number> | null): void {
     if (!this.mesh.instanceColor || !this.baseColors) return;
     const c = this._tmp;
-    // restore previous hovered node
-    if (prev !== null) {
-      c.setRGB(this.baseColors[prev * 3], this.baseColors[prev * 3 + 1], this.baseColors[prev * 3 + 2]);
-      this.mesh.setColorAt(prev, c);
+    // restore all previously highlighted nodes to their base colors
+    if (this.hoverIndex !== null) {
+      const prevHighlighted = this._prevHighlighted ?? new Set([this.hoverIndex]);
+      for (const i of prevHighlighted) {
+        c.setRGB(this.baseColors[i * 3], this.baseColors[i * 3 + 1], this.baseColors[i * 3 + 2]);
+        this.mesh.setColorAt(i, c);
+      }
     }
-    // highlight new hovered node
-    if (index !== null) {
-      c.setRGB(this.baseColors[index * 3], this.baseColors[index * 3 + 1], this.baseColors[index * 3 + 2]);
+    this._prevHighlighted = indices ?? undefined;
+
+    if (indices === null || indices.size === 0) {
+      this.hoverIndex = null;
+      this.mesh.instanceColor.needsUpdate = true;
+      return;
+    }
+
+    // Use the first element as the primary hovered node for change-detection
+    this.hoverIndex = indices.values().next().value ?? null;
+
+    // highlight all nodes in the set
+    for (const i of indices) {
+      c.setRGB(this.baseColors[i * 3], this.baseColors[i * 3 + 1], this.baseColors[i * 3 + 2]);
       c.lerp(this.white, 0.5);
-      this.mesh.setColorAt(index, c);
+      this.mesh.setColorAt(i, c);
     }
     this.mesh.instanceColor.needsUpdate = true;
   }

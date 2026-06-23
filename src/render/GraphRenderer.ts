@@ -57,6 +57,11 @@ export class GraphRenderer {
     this.nodes.setHover(index);
   }
 
+  /** Highlight the hovered node and all its neighbors in the scene. */
+  setHoverWithNeighbors(indices: Set<number> | null): void {
+    this.nodes.setHoverSet(indices);
+  }
+
   pickAt(clientX: number, clientY: number): number | null {
     const rect = this.renderer.domElement.getBoundingClientRect();
     const ndcX = ((clientX - rect.left) / rect.width) * 2 - 1;

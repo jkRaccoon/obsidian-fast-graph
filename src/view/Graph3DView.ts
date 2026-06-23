@@ -119,13 +119,13 @@ export class Graph3DView extends ItemView {
       if (!this.renderer || !this.model) return;
       const id = this.renderer.pickAt(ev.clientX, ev.clientY);
       if (id === null) {
-        this.renderer.setHover(null);
+        this.renderer.setHoverWithNeighbors(null);
         if (this.label) this.label.style.display = "none";
         return;
       }
       // Highlight hovered node and its neighbors in the 3D scene.
-      neighborsOf(this.model, id);
-      this.renderer.setHover(id);
+      const highlighted = neighborsOf(this.model, id);
+      this.renderer.setHoverWithNeighbors(highlighted);
       if (this.settings.showLabels && this.label) {
         this.label.textContent = this.model.paths[id];
         this.label.style.left = ev.offsetX + 12 + "px";
@@ -134,7 +134,7 @@ export class Graph3DView extends ItemView {
       }
     });
     container.addEventListener("mouseleave", () => {
-      this.renderer?.setHover(null);
+      this.renderer?.setHoverWithNeighbors(null);
       if (this.label) this.label.style.display = "none";
     });
     container.addEventListener("click", (ev) => {
