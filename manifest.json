@@ -1,0 +1,9 @@
+{
+  "id": "fast-graph-3d",
+  "name": "Fast 3D Graph",
+  "version": "0.1.0",
+  "minAppVersion": "1.4.0",
+  "description": "Explore your vault as a fast 3D force-directed graph.",
+  "author": "jkRaccoon",
+  "isDesktopOnly": true
+}

@@ -1,0 +1,1 @@
+// physics worker stub — Task 8에서 구현
