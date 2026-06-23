@@ -80,6 +80,7 @@ export class Graph3DView extends ItemView {
       count: model.count,
       edges: model.edges,
       positions: model.positions,
+      groupId: model.groupId,
       params: { ...FORCE_DEFAULTS },
       onTick: (positions) => this.renderer?.updatePositions(positions),
     });
@@ -150,6 +151,12 @@ export class Graph3DView extends ItemView {
   setLocalMode(enabled: boolean): void {
     this.localMode = enabled;
     this.refresh();
+  }
+
+  /** 자동 회전 토글 — 전체 재구성 없이 렌더러에 즉시 반영. */
+  setAutoRotate(on: boolean): void {
+    this.settings.autoRotate = on;
+    this.renderer?.setAutoRotate(on);
   }
 
   refresh(): void {

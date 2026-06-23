@@ -51,5 +51,14 @@ export default class FastGraphPlugin extends Plugin {
     }
   }
 
+  /** 자동 회전만 라이브로 토글(시뮬레이션 재시작 없이). */
+  async updateAutoRotate(on: boolean): Promise<void> {
+    this.settings.autoRotate = on;
+    await this.saveData(this.settings);
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_3D_GRAPH)) {
+      if (leaf.view instanceof Graph3DView) leaf.view.setAutoRotate(on);
+    }
+  }
+
   onunload(): void {}
 }

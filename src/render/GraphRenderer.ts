@@ -37,6 +37,8 @@ export class GraphRenderer {
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
+    this.controls.autoRotate = settings.autoRotate;
+    this.controls.autoRotateSpeed = 0.6; // 천천히(약 100초/회전)
 
     this.nodes = new NodeLayer(model.count);
     this.nodes.setColors(model.groupId, groups);
@@ -55,6 +57,11 @@ export class GraphRenderer {
 
   setHover(index: number | null): void {
     this.nodes.setHover(index);
+  }
+
+  /** 자동 회전 켜기/끄기 (전체 재구성 없이 즉시 적용). */
+  setAutoRotate(on: boolean): void {
+    this.controls.autoRotate = on;
   }
 
   /** Highlight the hovered node and all its neighbors in the scene. */

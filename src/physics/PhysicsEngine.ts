@@ -18,7 +18,15 @@ export class PhysicsEngine {
   private scratch = new Float32Array(3);
   private tree: Octree;  // 재사용 — tick마다 new 하지 않음
 
-  constructor(opts: { count: number; edges: Int32Array; positions: Float32Array; params: ForceParams }) {
+  // 그룹(색상) 힘용 — 핫 루프에서 객체 생성 금지: 사전 할당한 typed array 재사용
+  private groupId: Uint16Array;
+  private numGroups: number;
+  private gSum: Float32Array;    // [g*3..] 그룹 위치 합
+  private gCount: Float32Array;  // 그룹별 노드 수
+  private gCen: Float32Array;    // [g*3..] 그룹 중심
+  private gSep: Float32Array;    // [g*3..] 그룹별 분리 가속도
+
+  constructor(opts: { count: number; edges: Int32Array; positions: Float32Array; params: ForceParams; groupId?: Uint16Array }) {
     this.count = opts.count;
     this.edges = opts.edges;
     this.pos = opts.positions;
@@ -27,6 +35,15 @@ export class PhysicsEngine {
     this.force = new Float32Array(opts.count * 3);
     this.pinned = new Uint8Array(opts.count);
     this.tree = new Octree(opts.count);  // 한 번만 생성, tick마다 rebuild
+
+    this.groupId = opts.groupId ?? new Uint16Array(opts.count);
+    let maxG = 0;
+    for (let i = 0; i < opts.count; i++) if (this.groupId[i] > maxG) maxG = this.groupId[i];
+    this.numGroups = maxG + 1;
+    this.gSum = new Float32Array(this.numGroups * 3);
+    this.gCount = new Float32Array(this.numGroups);
+    this.gCen = new Float32Array(this.numGroups * 3);
+    this.gSep = new Float32Array(this.numGroups * 3);
   }
 
   get positions(): Float32Array {
@@ -52,7 +69,7 @@ export class PhysicsEngine {
   }
 
   tick(): void {
-    const { repulsion, linkStrength, linkDistance, gravity, damping, theta } = this.params;
+    const { repulsion, linkStrength, linkDistance, gravity, damping, theta, groupCohesion, groupSeparation } = this.params;
     const f = this.force;
     f.fill(0);
 
@@ -75,6 +92,62 @@ export class PhysicsEngine {
       const fx = dx * k, fy = dy * k, fz = dz * k;
       f[a * 3] += fx; f[a * 3 + 1] += fy; f[a * 3 + 2] += fz;
       f[b * 3] -= fx; f[b * 3 + 1] -= fy; f[b * 3 + 2] -= fz;
+    }
+
+    // 2.5) 그룹(색상) 힘 — 같은 그룹은 그룹 중심으로 응집, 그룹 중심끼리는 분리
+    const doCohesion = groupCohesion > 0;
+    const doSeparation = groupSeparation > 0 && this.numGroups > 1;
+    if (doCohesion || doSeparation) {
+      const G = this.numGroups;
+      // 그룹 중심 계산
+      this.gSum.fill(0); this.gCount.fill(0);
+      for (let i = 0; i < this.count; i++) {
+        const g = this.groupId[i];
+        this.gSum[g * 3] += this.pos[i * 3];
+        this.gSum[g * 3 + 1] += this.pos[i * 3 + 1];
+        this.gSum[g * 3 + 2] += this.pos[i * 3 + 2];
+        this.gCount[g]++;
+      }
+      for (let g = 0; g < G; g++) {
+        const c = this.gCount[g] || 1;
+        this.gCen[g * 3] = this.gSum[g * 3] / c;
+        this.gCen[g * 3 + 1] = this.gSum[g * 3 + 1] / c;
+        this.gCen[g * 3 + 2] = this.gSum[g * 3 + 2] / c;
+      }
+      // 그룹 간 분리 가속도 (Coulomb, 상대 그룹의 노드 수를 charge로 사용)
+      if (doSeparation) {
+        this.gSep.fill(0);
+        for (let g = 0; g < G; g++) {
+          if (this.gCount[g] === 0) continue;
+          for (let h = 0; h < G; h++) {
+            if (h === g || this.gCount[h] === 0) continue;
+            let dx = this.gCen[g * 3] - this.gCen[h * 3];
+            let dy = this.gCen[g * 3 + 1] - this.gCen[h * 3 + 1];
+            let dz = this.gCen[g * 3 + 2] - this.gCen[h * 3 + 2];
+            let d2 = dx * dx + dy * dy + dz * dz;
+            if (d2 < 1e-3) { dx = g - h; dy = 0; dz = 0; d2 = (g - h) * (g - h) || 1e-3; }
+            const dd = Math.sqrt(d2);
+            const fmag = (groupSeparation * this.gCount[h]) / d2;
+            this.gSep[g * 3] += (dx / dd) * fmag;
+            this.gSep[g * 3 + 1] += (dy / dd) * fmag;
+            this.gSep[g * 3 + 2] += (dz / dd) * fmag;
+          }
+        }
+      }
+      // f에 더하기
+      for (let i = 0; i < this.count; i++) {
+        const g = this.groupId[i];
+        if (doCohesion) {
+          f[i * 3] += (this.gCen[g * 3] - this.pos[i * 3]) * groupCohesion;
+          f[i * 3 + 1] += (this.gCen[g * 3 + 1] - this.pos[i * 3 + 1]) * groupCohesion;
+          f[i * 3 + 2] += (this.gCen[g * 3 + 2] - this.pos[i * 3 + 2]) * groupCohesion;
+        }
+        if (doSeparation) {
+          f[i * 3] += this.gSep[g * 3];
+          f[i * 3 + 1] += this.gSep[g * 3 + 1];
+          f[i * 3 + 2] += this.gSep[g * 3 + 2];
+        }
+      }
     }
 
     // 3) 중심화(gravity) + 적분

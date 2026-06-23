@@ -35,7 +35,8 @@ self.onmessage = (ev: MessageEvent<MainToWorker>) => {
     case "init": {
       const positions = new Float32Array(m.positions);
       const edges = new Int32Array(m.edges);
-      engine = new PhysicsEngine({ count: m.count, edges, positions, params: m.params as ForceParams });
+      const groupId = new Uint16Array(m.groupId);
+      engine = new PhysicsEngine({ count: m.count, edges, positions, groupId, params: m.params as ForceParams });
       startLoop();
       break;
     }

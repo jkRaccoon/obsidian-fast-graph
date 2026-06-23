@@ -8,6 +8,7 @@ export interface PhysicsClientOpts {
   count: number;
   edges: Int32Array;
   positions: Float32Array;
+  groupId: Uint16Array;
   params: ForceParams;
   onTick: (positions: Float32Array, alpha: number) => void;
 }
@@ -29,7 +30,7 @@ export class PhysicsClient {
         else if (m.type === "error") { console.error("[fast-graph-3d] worker:", m.message); this.startFallback(); }
       };
       this.worker.onerror = () => this.startFallback();
-      const { msg, transfer } = initMessage(opts.count, opts.edges, opts.positions, opts.params);
+      const { msg, transfer } = initMessage(opts.count, opts.edges, opts.positions, opts.groupId, opts.params);
       this.worker.postMessage(msg, transfer);
     } catch (err) {
       console.warn("[fast-graph-3d] worker unavailable, using main-thread fallback:", err);
@@ -44,6 +45,7 @@ export class PhysicsClient {
       count: this.opts.count,
       edges: this.opts.edges,
       positions: this.opts.positions.slice(),
+      groupId: this.opts.groupId,
       params: this.opts.params,
     });
     const loop = () => {

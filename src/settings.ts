@@ -61,6 +61,16 @@ export class FastGraphSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
+      .setName("자동 회전")
+      .setDesc("그래프를 천천히 회전시켜 입체감을 줍니다 (끄면 멈춥니다)")
+      .addToggle((t) =>
+        t.setValue(this.plugin.settings.autoRotate).onChange(async (v) => {
+          // 시뮬레이션 재시작 없이 즉시 토글
+          await this.plugin.updateAutoRotate(v);
+        })
+      );
+
+    new Setting(containerEl)
       .setName("Obsidian 제외 파일 반영")
       .setDesc("설정 → 파일 및 링크 → 제외할 파일 목록에 해당하는 파일을 그래프에서 숨깁니다")
       .addToggle((t) =>
