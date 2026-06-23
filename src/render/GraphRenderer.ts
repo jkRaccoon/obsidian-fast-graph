@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { NodeLayer } from "./NodeLayer";
 import { EdgeLayer } from "./EdgeLayer";
+import { ParticleLayer } from "./ParticleLayer";
 import { Picker } from "./Picker";
 import type { GraphModel } from "../data/GraphModel";
 import type { RenderSettings } from "../types";
@@ -13,9 +14,11 @@ export class GraphRenderer {
   private controls: OrbitControls;
   private nodes: NodeLayer;
   private edges: EdgeLayer;
+  private particles: ParticleLayer;
   private picker: Picker;
   private raf = 0;
   private latest: Float32Array | null = null;
+  private lastTime = 0;
 
   constructor(
     private container: HTMLElement,
@@ -44,10 +47,12 @@ export class GraphRenderer {
     this.nodes.setColors(model.groupId, groups);
     this.nodes.setSizes(model.degree, settings.nodeBaseSize, settings.nodeDegreeScale);
     this.edges = new EdgeLayer(model.edges);
+    this.particles = new ParticleLayer();
     this.picker = new Picker(this.camera, this.nodes.mesh);
 
     this.scene.add(this.edges.segments);
     this.scene.add(this.nodes.mesh);
+    this.scene.add(this.particles.points);
     this.updatePositions(model.positions);
   }
 
@@ -64,9 +69,16 @@ export class GraphRenderer {
     this.controls.autoRotate = on;
   }
 
-  /** Highlight the hovered node and all its neighbors in the scene. */
-  setHoverWithNeighbors(indices: Set<number> | null): void {
+  /** Highlight the hovered node and its neighbors, and stream data particles along the edges. */
+  setHoverWithNeighbors(hovered: number | null, indices: Set<number> | null): void {
     this.nodes.setHoverSet(indices);
+    if (hovered !== null && indices) {
+      const neighbors: number[] = [];
+      for (const idx of indices) if (idx !== hovered) neighbors.push(idx);
+      this.particles.setSource(hovered, neighbors);
+    } else {
+      this.particles.setSource(null, []);
+    }
   }
 
   pickAt(clientX: number, clientY: number): number | null {
@@ -87,10 +99,14 @@ export class GraphRenderer {
   start(): void {
     if (this.raf) return;
     const loop = () => {
+      const now = performance.now() / 1000;
+      const dt = this.lastTime ? Math.min(now - this.lastTime, 0.05) : 0;
+      this.lastTime = now;
       this.controls.update();
       if (this.latest) {
         this.nodes.updatePositions(this.latest);
         this.edges.updatePositions(this.latest);
+        this.particles.update(this.latest, dt);
       }
       this.renderer.render(this.scene, this.camera);
       this.raf = window.requestAnimationFrame(loop);
@@ -108,6 +124,7 @@ export class GraphRenderer {
     this.controls.dispose();
     this.nodes.dispose();
     this.edges.dispose();
+    this.particles.dispose();
     this.renderer.dispose();
     this.renderer.domElement.remove();
   }

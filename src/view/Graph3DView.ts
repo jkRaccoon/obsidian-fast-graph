@@ -108,17 +108,29 @@ export class Graph3DView extends ItemView {
   }
 
   private wireInteraction(container: HTMLElement): void {
+    // 현재 강조 중인 대상(호버 또는 선택). 동일하면 재구성하지 않아 파티클 진행이 끊기지 않게 한다.
+    let shown: number | null = null;
+    let selected: number | null = null;
+    const display = (idx: number | null) => {
+      if (idx === shown) return;
+      shown = idx;
+      if (idx === null || !this.model) {
+        this.renderer?.setHoverWithNeighbors(null, null);
+        return;
+      }
+      this.renderer?.setHoverWithNeighbors(idx, neighborsOf(this.model, idx));
+    };
+
     container.addEventListener("mousemove", (ev) => {
       if (!this.renderer || !this.model) return;
       const id = this.renderer.pickAt(ev.clientX, ev.clientY);
       if (id === null) {
-        this.renderer.setHoverWithNeighbors(null);
+        // 호버에서 벗어나면 선택된 노드가 있을 때 그 강조를 유지한다.
+        display(selected);
         this.label?.removeClass("is-visible");
         return;
       }
-      // Highlight hovered node and its neighbors in the 3D scene.
-      const highlighted = neighborsOf(this.model, id);
-      this.renderer.setHoverWithNeighbors(highlighted);
+      display(id);
       if (this.settings.showLabels && this.label) {
         this.label.textContent = this.model.paths[id];
         this.label.setCssStyles({ left: `${ev.offsetX + 12}px`, top: `${ev.offsetY + 12}px` });
@@ -126,11 +138,11 @@ export class Graph3DView extends ItemView {
       }
     });
     container.addEventListener("mouseleave", () => {
-      this.renderer?.setHoverWithNeighbors(null);
+      display(selected);
       this.label?.removeClass("is-visible");
     });
-    // 드래그(카메라 회전)와 클릭을 구분: mousedown 위치를 기억해 두고,
-    // mouseup(click)까지 거의 안 움직였을 때만 노트를 연다.
+
+    // 드래그(카메라 회전)와 클릭을 구분: mousedown 위치를 기억해, 거의 안 움직였을 때만 클릭 처리.
     let downX = 0;
     let downY = 0;
     container.addEventListener("mousedown", (ev) => {
@@ -141,12 +153,24 @@ export class Graph3DView extends ItemView {
       if (!this.renderer || !this.model) return;
       const dx = ev.clientX - downX;
       const dy = ev.clientY - downY;
-      if (dx * dx + dy * dy > 25) return; // 5px 초과 이동 → 드래그로 간주, 열지 않음
+      if (dx * dx + dy * dy > 25) return; // 드래그 → 무시
       const id = this.renderer.pickAt(ev.clientX, ev.clientY);
-      if (id === null) return;
-      const path = this.model.paths[id];
-      const file = this.app.vault.getAbstractFileByPath(path);
-      if (file instanceof TFile) void this.app.workspace.getLeaf(false).openFile(file);
+      if (id === null) {
+        // 빈 공간 클릭 → 선택 해제
+        selected = null;
+        display(null);
+        return;
+      }
+      if (id === selected) {
+        // 이미 선택된 노드를 다시 클릭 → 문서 열기
+        const path = this.model.paths[id];
+        const file = this.app.vault.getAbstractFileByPath(path);
+        if (file instanceof TFile) void this.app.workspace.getLeaf(false).openFile(file);
+        return;
+      }
+      // 첫 클릭: 노드 선택(강조/파티클 유지), 열지 않음
+      selected = id;
+      display(id);
     });
   }
 
