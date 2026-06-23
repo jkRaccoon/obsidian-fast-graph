@@ -78,6 +78,12 @@ export class PhysicsEngine {
     }
 
     // 3) 중심화(gravity) + 적분
+    // 발산 방지: per-tick 변위(속도) 크기를 maxStep으로 제한한다. 고차수 허브 노드는
+    // 스프링 강성(≈degree*linkStrength)이 매우 커서 명시적 Euler 적분이 불안정해지고
+    // (√k·dt > ~2) 좌표가 폭발한다. 변위 상한이 적분 스텝을 유계로 만들어 강성/차수와
+    // 무관하게 안정성을 보장한다.
+    const maxStep = linkDistance;
+    const maxStep2 = maxStep * maxStep;
     for (let i = 0; i < this.count; i++) {
       if (this.pinned[i]) continue;
       const ix = i * 3, iy = ix + 1, iz = ix + 2;
@@ -85,13 +91,20 @@ export class PhysicsEngine {
       f[iy] -= this.pos[iy] * gravity;
       f[iz] -= this.pos[iz] * gravity;
 
-      this.vel[ix] = (this.vel[ix] + f[ix] * this.alpha) * damping;
-      this.vel[iy] = (this.vel[iy] + f[iy] * this.alpha) * damping;
-      this.vel[iz] = (this.vel[iz] + f[iz] * this.alpha) * damping;
+      let vx = (this.vel[ix] + f[ix] * this.alpha) * damping;
+      let vy = (this.vel[iy] + f[iy] * this.alpha) * damping;
+      let vz = (this.vel[iz] + f[iz] * this.alpha) * damping;
 
-      this.pos[ix] += this.vel[ix];
-      this.pos[iy] += this.vel[iy];
-      this.pos[iz] += this.vel[iz];
+      const sp2 = vx * vx + vy * vy + vz * vz;
+      if (sp2 > maxStep2) {
+        const scale = maxStep / Math.sqrt(sp2);
+        vx *= scale; vy *= scale; vz *= scale;
+      }
+
+      this.vel[ix] = vx; this.vel[iy] = vy; this.vel[iz] = vz;
+      this.pos[ix] += vx;
+      this.pos[iy] += vy;
+      this.pos[iz] += vz;
     }
 
     // alpha 감쇠

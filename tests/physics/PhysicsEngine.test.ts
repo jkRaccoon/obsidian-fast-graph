@@ -73,4 +73,38 @@ describe("PhysicsEngine", () => {
     engine.reheat();
     expect(engine.alpha).toBe(1);
   });
+
+  it("stays numerically bounded with high-degree hub nodes (no explosion)", () => {
+    // 실제 노트 vault엔 degree가 큰 허브(MOC/인덱스)가 있다. 허브는 스프링 강성이
+    // degree*linkStrength로 매우 커서, per-tick 변위 상한이 없으면 explicit Euler가
+    // 발산해 좌표가 ~1e30까지 폭발한다(실제 vault 첫 실행 버그 재현).
+    const count = 400;
+    const positions = new Float32Array(count * 3);
+    let s = 1;
+    const rnd = () => {
+      s = (s * 1103515245 + 12345) & 0x7fffffff;
+      return s / 0x7fffffff;
+    };
+    for (let i = 0; i < count; i++) {
+      positions[i * 3] = (rnd() * 2 - 1) * 200;
+      positions[i * 3 + 1] = (rnd() * 2 - 1) * 200;
+      positions[i * 3 + 2] = (rnd() * 2 - 1) * 200;
+    }
+    const edges: number[] = [];
+    for (let i = 1; i < count; i++) edges.push(0, i); // 노드 0 = degree 399 허브
+    const engine = new PhysicsEngine({
+      count,
+      edges: Int32Array.from(edges),
+      positions,
+      params: { ...FORCE_DEFAULTS },
+    });
+    for (let i = 0; i < 400; i++) engine.tick();
+    let max = 0;
+    for (let i = 0; i < positions.length; i++) {
+      expect(Number.isFinite(positions[i])).toBe(true);
+      const a = Math.abs(positions[i]);
+      if (a > max) max = a;
+    }
+    expect(max).toBeLessThan(1e5);
+  });
 });
