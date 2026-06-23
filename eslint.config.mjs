@@ -1,4 +1,3 @@
-import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import obsidianmd from "eslint-plugin-obsidianmd";
 
@@ -6,7 +5,6 @@ export default tseslint.config(
   {
     ignores: ["main.js", "tests/**", "*.config.mjs", "*.config.ts", "vitest.setup.ts", ".yarn/**"],
   },
-  js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
   ...obsidianmd.configs.recommended,
   {
