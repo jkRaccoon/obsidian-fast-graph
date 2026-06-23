@@ -12,6 +12,7 @@ async function buildWorker() {
     target: "es2020",
     minify: prod,
     write: false,
+    tsconfig: "tsconfig.esbuild.json",
   });
   return result.outputFiles[0].text;
 }
@@ -26,6 +27,7 @@ async function buildMain(workerCode) {
     target: "es2020",
     external: ["obsidian", "electron", "@codemirror/*", "@lezer/*"],
     define: { "process.env.WORKER_CODE": JSON.stringify(workerCode) },
+    tsconfig: "tsconfig.esbuild.json",
     outfile: "main.js",
     sourcemap: prod ? false : "inline",
     minify: prod,

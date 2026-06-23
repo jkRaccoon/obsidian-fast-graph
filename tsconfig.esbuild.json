@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.json",
+  "comment": "esbuild 전용: vendored 타입 paths를 비워 three를 node_modules에서 번들하도록 한다(타입 .d.ts 번들 방지).",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {}
+  }
+}
