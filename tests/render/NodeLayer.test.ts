@@ -28,6 +28,41 @@ describe("NodeLayer", () => {
     expect(c.g).toBeCloseTo(0);
   });
 
+  it("setHover: 호버된 노드 색상이 흰색과 50% lerp로 밝아지고, 호버 해제 시 원래 색상으로 복원된다", () => {
+    const layer = new NodeLayer(2);
+    layer.setColors(Uint16Array.from([0, 1]), [{ color: "#ff0000" }, { color: "#0000ff" }]);
+
+    // 호버 전: 인덱스 0은 빨간색(r=1)
+    const before = new THREE.Color();
+    layer.mesh.getColorAt(0, before);
+    expect(before.r).toBeCloseTo(1);
+    expect(before.g).toBeCloseTo(0);
+
+    // 호버 시: r=1, g=0, b=0 에서 white(1,1,1) lerp 0.5 → r=1, g=0.5, b=0.5
+    layer.setHover(0);
+    const hovered = new THREE.Color();
+    layer.mesh.getColorAt(0, hovered);
+    expect(hovered.r).toBeCloseTo(1.0);
+    expect(hovered.g).toBeCloseTo(0.5);
+    expect(hovered.b).toBeCloseTo(0.5);
+
+    // 다른 노드로 호버 이동: 이전 노드(0)는 원래 색으로 복원
+    layer.setHover(1);
+    const restored = new THREE.Color();
+    layer.mesh.getColorAt(0, restored);
+    expect(restored.r).toBeCloseTo(1);
+    expect(restored.g).toBeCloseTo(0);
+    expect(restored.b).toBeCloseTo(0);
+
+    // 호버 해제(null): 노드 1 원래 색으로 복원
+    layer.setHover(null);
+    const restored1 = new THREE.Color();
+    layer.mesh.getColorAt(1, restored1);
+    expect(restored1.r).toBeCloseTo(0);
+    expect(restored1.g).toBeCloseTo(0);
+    expect(restored1.b).toBeCloseTo(1);
+  });
+
   it("setSizes: updatePositions 후 인스턴스 행렬 scale이 base+sqrt(degree)*scale로 설정된다", () => {
     const layer = new NodeLayer(2);
     const base = 1.0;

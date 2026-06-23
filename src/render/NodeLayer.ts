@@ -9,6 +9,7 @@ export class NodeLayer {
   private hoverIndex: number | null = null;
   private baseColors: Float32Array | null = null;
   private white = new THREE.Color(0xffffff);
+  private _tmp = new THREE.Color();
 
   constructor(count: number) {
     this.geometry = new THREE.SphereGeometry(1, 8, 6);
@@ -38,7 +39,7 @@ export class NodeLayer {
     const prev = this.hoverIndex;
     this.hoverIndex = index;
     if (!this.mesh.instanceColor || !this.baseColors) return;
-    const c = new THREE.Color();
+    const c = this._tmp;
     // restore previous hovered node
     if (prev !== null) {
       c.setRGB(this.baseColors[prev * 3], this.baseColors[prev * 3 + 1], this.baseColors[prev * 3 + 2]);
