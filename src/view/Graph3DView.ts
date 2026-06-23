@@ -129,8 +129,19 @@ export class Graph3DView extends ItemView {
       this.renderer?.setHoverWithNeighbors(null);
       this.label?.removeClass("is-visible");
     });
+    // 드래그(카메라 회전)와 클릭을 구분: mousedown 위치를 기억해 두고,
+    // mouseup(click)까지 거의 안 움직였을 때만 노트를 연다.
+    let downX = 0;
+    let downY = 0;
+    container.addEventListener("mousedown", (ev) => {
+      downX = ev.clientX;
+      downY = ev.clientY;
+    });
     container.addEventListener("click", (ev) => {
       if (!this.renderer || !this.model) return;
+      const dx = ev.clientX - downX;
+      const dy = ev.clientY - downY;
+      if (dx * dx + dy * dy > 25) return; // 5px 초과 이동 → 드래그로 간주, 열지 않음
       const id = this.renderer.pickAt(ev.clientX, ev.clientY);
       if (id === null) return;
       const path = this.model.paths[id];
