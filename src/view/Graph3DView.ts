@@ -5,6 +5,7 @@ import { PhysicsClient } from "../physics/PhysicsClient";
 import { GraphRenderer } from "../render/GraphRenderer";
 import { extractLocalGraph } from "../interaction/localGraph";
 import { buildGraphModel, seedPositions, type GraphModel } from "../data/GraphModel";
+import { neighborsOf } from "../interaction/hover";
 import { FORCE_DEFAULTS, type RenderSettings } from "../types";
 
 export const VIEW_TYPE_3D_GRAPH = "fast-graph-3d-view";
@@ -59,9 +60,10 @@ export class Graph3DView extends ItemView {
     }
     this.model = model;
 
-    // model.groupId is already populated correctly by GraphDataProvider.build()
-    // (including tag lookup). Derive the palette from the existing groupId instead
-    // of re-computing with an empty tagsByPath map.
+    // model.groupId is populated correctly: by GraphDataProvider.build() for the full
+    // model, and by subgraph() (which copies from the full model) for local mode.
+    // Derive the palette from the existing groupId instead of re-computing with an
+    // empty tagsByPath map.
     const maxGroupId = model.groupId.reduce((m, id) => Math.max(m, id), 0);
     const groups = Array.from({ length: maxGroupId + 1 }, (_, i) => ({
       id: i,
@@ -100,23 +102,40 @@ export class Graph3DView extends ItemView {
       }
     }
     for (const p of paths) resolved[p] ??= {};
-    // GraphModel 재빌드(시드/그룹은 build()와 동일 경로 사용 위해 간단 재구성)
+    // GraphModel 재빌드
     const m: GraphModel = buildGraphModel(resolved);
     seedPositions(m, 1);
+    // groupId는 full 모델에서 이미 GraphDataProvider.build()가 채워뒀으므로
+    // 서브그래프의 각 노드 경로로 원본 인덱스를 조회하여 복사한다.
+    for (let i = 0; i < m.count; i++) {
+      const origIdx = full.pathToIndex.get(m.paths[i]);
+      if (origIdx !== undefined) m.groupId[i] = full.groupId[origIdx];
+    }
     return m;
   }
 
   private wireInteraction(container: HTMLElement): void {
     container.addEventListener("mousemove", (ev) => {
-      if (!this.renderer || !this.model || !this.settings.showLabels) return;
+      if (!this.renderer || !this.model) return;
       const id = this.renderer.pickAt(ev.clientX, ev.clientY);
-      if (id === null) { if (this.label) this.label.style.display = "none"; return; }
-      if (this.label) {
+      if (id === null) {
+        this.renderer.setHover(null);
+        if (this.label) this.label.style.display = "none";
+        return;
+      }
+      // Highlight hovered node and its neighbors in the 3D scene.
+      neighborsOf(this.model, id);
+      this.renderer.setHover(id);
+      if (this.settings.showLabels && this.label) {
         this.label.textContent = this.model.paths[id];
         this.label.style.left = ev.offsetX + 12 + "px";
         this.label.style.top = ev.offsetY + 12 + "px";
         this.label.style.display = "block";
       }
+    });
+    container.addEventListener("mouseleave", () => {
+      this.renderer?.setHover(null);
+      if (this.label) this.label.style.display = "none";
     });
     container.addEventListener("click", (ev) => {
       if (!this.renderer || !this.model) return;
