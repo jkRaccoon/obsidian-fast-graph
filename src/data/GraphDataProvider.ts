@@ -7,7 +7,9 @@ type BoundRef = { source: "metadataCache" | "vault"; ref: EventRef };
 
 export class GraphDataProvider {
   private boundRefs: BoundRef[] = [];
-  private timer: ReturnType<typeof setTimeout> | null = null;
+  // Per-subscription timers are held in closure locals inside onChange().
+  // This set lets dispose() cancel any pending debounced calls.
+  private timers: Set<ReturnType<typeof setTimeout>> = new Set();
 
   constructor(private app: App, private settings: RenderSettings) {}
 
@@ -31,9 +33,13 @@ export class GraphDataProvider {
   }
 
   onChange(cb: () => void): () => void {
+    // Each subscription gets its own timer to avoid races when multiple
+    // subscribers co-exist on the same GraphDataProvider instance.
+    let timer: ReturnType<typeof setTimeout> | null = null;
     const debounced = () => {
-      if (this.timer) clearTimeout(this.timer);
-      this.timer = setTimeout(cb, 300);
+      if (timer) { clearTimeout(timer); this.timers.delete(timer); }
+      timer = setTimeout(() => { this.timers.delete(timer!); cb(); }, 300);
+      this.timers.add(timer);
     };
     const localRefs: BoundRef[] = [
       { source: "metadataCache", ref: this.app.metadataCache.on("resolved", debounced) },
@@ -52,7 +58,8 @@ export class GraphDataProvider {
   }
 
   dispose(): void {
-    if (this.timer) clearTimeout(this.timer);
+    for (const t of this.timers) clearTimeout(t);
+    this.timers.clear();
     for (const br of this.boundRefs) this._offref(br);
     this.boundRefs = [];
   }
