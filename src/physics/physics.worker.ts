@@ -9,11 +9,14 @@ function post(msg: WorkerToMain, transfer?: Transferable[]) {
 }
 
 function stopLoop() {
+  // Web Worker 컨텍스트라 window가 없다 — clearInterval/setInterval 전역을 사용.
+  // eslint-disable-next-line obsidianmd/prefer-window-timers
   if (timer !== null) { clearInterval(timer); timer = null; }
 }
 
 function startLoop() {
   if (timer !== null || !engine) return;
+  // eslint-disable-next-line obsidianmd/prefer-window-timers
   timer = setInterval(() => {
     if (!engine) return;
     try {

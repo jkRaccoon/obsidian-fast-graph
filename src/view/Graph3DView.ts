@@ -135,7 +135,7 @@ export class Graph3DView extends ItemView {
       if (id === null) return;
       const path = this.model.paths[id];
       const file = this.app.vault.getAbstractFileByPath(path);
-      if (file instanceof TFile) this.app.workspace.getLeaf(false).openFile(file);
+      if (file instanceof TFile) void this.app.workspace.getLeaf(false).openFile(file);
     });
   }
 

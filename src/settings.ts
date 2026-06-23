@@ -30,7 +30,6 @@ export class FastGraphSettingTab extends PluginSettingTab {
       .addSlider((s) =>
         s
           .setLimits(1, 4, 1)
-          .setDynamicTooltip()
           .setValue(this.plugin.settings.localGraphDepth)
           .onChange(async (v) => {
             this.plugin.settings.localGraphDepth = v;
@@ -43,7 +42,6 @@ export class FastGraphSettingTab extends PluginSettingTab {
       .addSlider((s) =>
         s
           .setLimits(0, 3, 0.1)
-          .setDynamicTooltip()
           .setValue(this.plugin.settings.nodeDegreeScale)
           .onChange(async (v) => {
             this.plugin.settings.nodeDegreeScale = v;

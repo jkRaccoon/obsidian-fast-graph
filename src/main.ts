@@ -35,13 +35,14 @@ export default class FastGraphPlugin extends Plugin {
       leaf = workspace.getLeaf("tab");
       await leaf.setViewState({ type: VIEW_TYPE_3D_GRAPH, active: true });
     }
-    workspace.revealLeaf(leaf);
+    await workspace.revealLeaf(leaf);
     const view = leaf.view;
     if (view instanceof Graph3DView) view.setLocalMode(local);
   }
 
   async loadSettings(): Promise<void> {
-    this.settings = Object.assign({}, RENDER_DEFAULTS, await this.loadData());
+    const saved = (await this.loadData()) as Partial<RenderSettings> | null;
+    this.settings = Object.assign({}, RENDER_DEFAULTS, saved);
   }
 
   async saveSettings(): Promise<void> {
