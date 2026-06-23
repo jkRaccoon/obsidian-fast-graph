@@ -14,5 +14,8 @@ data.json
 # superpowers 내부 산출물(스펙/계획) — GitHub 업로드 제외
 docs/superpowers/
 
+# 원본 영상(용량 큼) — README에는 변환된 mp4만 사용
+*.mov
+
 # misc
 .DS_Store
