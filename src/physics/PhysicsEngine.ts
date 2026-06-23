@@ -6,7 +6,7 @@ const ALPHA_TARGET = 0;
 
 export class PhysicsEngine {
   alpha = 1;
-  readonly alphaMin = 0.001;
+  readonly alphaMin = 0.005; // 수렴 후반의 무의미한 움직임 구간을 잘라 ~23% 적은 tick으로 정지
 
   private count: number;
   private edges: Int32Array;

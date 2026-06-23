@@ -13,7 +13,8 @@ export class NodeLayer {
   private _tmp = new THREE.Color();
 
   constructor(count: number) {
-    this.geometry = new THREE.SphereGeometry(1, 8, 6);
+    // 노드는 화면상 작은 점이라 저폴리 구로 충분 — 삼각형 수를 약 절반으로(대형 GPU 부담↓)
+    this.geometry = new THREE.SphereGeometry(1, 6, 4);
     this.material = new THREE.MeshBasicMaterial();
     this.mesh = new THREE.InstancedMesh(this.geometry, this.material, count);
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
