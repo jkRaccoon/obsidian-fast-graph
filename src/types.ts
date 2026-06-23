@@ -25,6 +25,7 @@ export interface RenderSettings {
   localGraphDepth: number;
   showLabels: boolean;
   maxNodes: number;
+  respectObsidianExclusions: boolean;
 }
 
 export const RENDER_DEFAULTS: RenderSettings = {
@@ -34,4 +35,5 @@ export const RENDER_DEFAULTS: RenderSettings = {
   localGraphDepth: 1,
   showLabels: true,
   maxNodes: 20000,
+  respectObsidianExclusions: true,
 };

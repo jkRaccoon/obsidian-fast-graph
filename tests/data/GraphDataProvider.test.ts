@@ -47,6 +47,35 @@ describe("GraphDataProvider", () => {
     expect(m.groupId[0]).not.toBe(m.groupId[1]);
   });
 
+  it("filters out Obsidian-excluded files when respectObsidianExclusions is on", () => {
+    const app = new FakeApp();
+    app.metadataCache.resolvedLinks = {
+      "a.md": { "b.md": 1 },
+      "b.md": {},
+      "node_modules/x.md": { "a.md": 1 },
+    };
+    app.vault.config.userIgnoreFilters = ["node_modules/"];
+    const provider = new GraphDataProvider(app as any, {
+      ...RENDER_DEFAULTS,
+      respectObsidianExclusions: true,
+    });
+    const m = provider.build();
+    expect(m.count).toBe(2);
+    expect(m.pathToIndex.has("node_modules/x.md")).toBe(false);
+  });
+
+  it("keeps excluded files when respectObsidianExclusions is off", () => {
+    const app = new FakeApp();
+    app.metadataCache.resolvedLinks = { "a.md": {}, "node_modules/x.md": {} };
+    app.vault.config.userIgnoreFilters = ["node_modules/"];
+    const provider = new GraphDataProvider(app as any, {
+      ...RENDER_DEFAULTS,
+      respectObsidianExclusions: false,
+    });
+    const m = provider.build();
+    expect(m.count).toBe(2);
+  });
+
   it("two onChange subscribers debounce independently (no timer race)", async () => {
     const { app, provider } = makeProvider();
     const cb1 = vi.fn();

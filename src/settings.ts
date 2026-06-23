@@ -61,6 +61,16 @@ export class FastGraphSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
+      .setName("Obsidian 제외 파일 반영")
+      .setDesc("설정 → 파일 및 링크 → 제외할 파일 목록에 해당하는 파일을 그래프에서 숨깁니다")
+      .addToggle((t) =>
+        t.setValue(this.plugin.settings.respectObsidianExclusions).onChange(async (v) => {
+          this.plugin.settings.respectObsidianExclusions = v;
+          await this.plugin.saveSettings();
+        })
+      );
+
+    new Setting(containerEl)
       .setName("최대 노드 수")
       .setDesc("이 수를 넘으면 경고를 표시")
       .addText((t) =>

@@ -1,6 +1,7 @@
 import type { App, EventRef } from "obsidian";
 import { buildGraphModel, seedPositions, type GraphModel } from "./GraphModel";
 import { computeGrouping } from "./grouping";
+import { filterResolvedLinks } from "./exclude";
 import type { RenderSettings } from "../types";
 
 type BoundRef = { source: "metadataCache" | "vault"; ref: EventRef };
@@ -14,7 +15,16 @@ export class GraphDataProvider {
   constructor(private app: App, private settings: RenderSettings) {}
 
   build(): GraphModel {
-    const links = this.app.metadataCache.resolvedLinks;
+    let links = this.app.metadataCache.resolvedLinks;
+    if (this.settings.respectObsidianExclusions) {
+      // Obsidian "제외할 파일"(Settings → Files and links → Excluded files)을 반영.
+      // getConfig는 비공식 API라 방어적으로 접근한다.
+      const filters = (this.app.vault as unknown as { getConfig?: (k: string) => unknown })
+        .getConfig?.("userIgnoreFilters");
+      if (Array.isArray(filters) && filters.length > 0) {
+        links = filterResolvedLinks(links, filters as string[]);
+      }
+    }
     const model = buildGraphModel(links);
 
     const tagsByPath = new Map<string, string[]>();
