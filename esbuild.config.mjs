@@ -1,13 +1,17 @@
 import esbuild from "esbuild";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 
 const prod = process.argv[2] === "production";
 
-// build/physics.wasm 을 base64로 읽어 워커에 임베드
-const wasmB64 = readFileSync("build/physics.wasm").toString("base64");
-
 // Pass 1: 워커를 자체 완결 IIFE 문자열로 번들
 async function buildWorker() {
+  if (!existsSync("build/physics.wasm")) {
+    throw new Error(
+      "build/physics.wasm 없음 — 먼저 `yarn asbuild`를 실행하세요."
+    );
+  }
+  const wasmB64 = readFileSync("build/physics.wasm").toString("base64");
+
   const result = await esbuild.build({
     entryPoints: ["src/physics/physics.worker.ts"],
     bundle: true,
