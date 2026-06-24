@@ -1,6 +1,10 @@
 import esbuild from "esbuild";
+import { readFileSync } from "node:fs";
 
 const prod = process.argv[2] === "production";
+
+// build/physics.wasm 을 base64로 읽어 워커에 임베드
+const wasmB64 = readFileSync("build/physics.wasm").toString("base64");
 
 // Pass 1: 워커를 자체 완결 IIFE 문자열로 번들
 async function buildWorker() {
@@ -12,6 +16,7 @@ async function buildWorker() {
     target: "es2020",
     minify: prod,
     write: false,
+    define: { "process.env.PHYSICS_WASM_B64": JSON.stringify(wasmB64) },
   });
   return result.outputFiles[0].text;
 }

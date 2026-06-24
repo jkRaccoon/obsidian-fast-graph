@@ -1082,6 +1082,19 @@ __metadata:
   languageName: node
   linkType: hard
 
+"assemblyscript@npm:^0.27.0":
+  version: 0.27.37
+  resolution: "assemblyscript@npm:0.27.37"
+  dependencies:
+    binaryen: 116.0.0-nightly.20240114
+    long: ^5.2.4
+  bin:
+    asc: bin/asc.js
+    asinit: bin/asinit.js
+  checksum: 519a49eefc967cfd4648daf843f4175b89334f3fb79b93f069bdbd1baeffe005f13bbd6b617469e0b0638573223fbea916cf71f81dd5cb2c091ca84e3548447f
+  languageName: node
+  linkType: hard
+
 "assertion-error@npm:^2.0.1":
   version: 2.0.1
   resolution: "assertion-error@npm:2.0.1"
@@ -1123,6 +1136,16 @@ __metadata:
   version: 4.0.4
   resolution: "balanced-match@npm:4.0.4"
   checksum: fb07bb66a0959c2843fc055838047e2a95ccebb837c519614afb067ebfdf2fa967ca8d712c35ced07f2cd26fc6f07964230b094891315ad74f11eba3d53178a0
+  languageName: node
+  linkType: hard
+
+"binaryen@npm:116.0.0-nightly.20240114":
+  version: 116.0.0-nightly.20240114
+  resolution: "binaryen@npm:116.0.0-nightly.20240114"
+  bin:
+    wasm-opt: bin/wasm-opt
+    wasm2js: bin/wasm2js
+  checksum: 77b281347f25a84ba619abd4bd67a84cf761abef7da4d8b3c7a7937272527a95199b7aa2b45c2c127b9e356bde9d7a2521a02226060df9d01c51f0b42c4ff27c
   languageName: node
   linkType: hard
 
@@ -2108,6 +2131,7 @@ __metadata:
   dependencies:
     "@types/node": ^20.14.0
     "@types/three": ^0.169.0
+    assemblyscript: ^0.27.0
     esbuild: ^0.21.0
     eslint: ^9
     eslint-plugin-obsidianmd: ^0.3.0
@@ -2850,6 +2874,13 @@ __metadata:
   version: 4.6.2
   resolution: "lodash.merge@npm:4.6.2"
   checksum: ad580b4bdbb7ca1f7abf7e1bce63a9a0b98e370cf40194b03380a46b4ed799c9573029599caebc1b14e3f24b111aef72b96674a56cfa105e0f5ac70546cdc005
+  languageName: node
+  linkType: hard
+
+"long@npm:^5.2.4":
+  version: 5.3.2
+  resolution: "long@npm:5.3.2"
+  checksum: be215816b563f4ca27ad3677678b53415bc489f9e3466414e54d2d85f5f8e86768547fa58493bacfb363ffc57a664debc83403ccc2178aef0c40aca28bad47c9
   languageName: node
   linkType: hard
 
