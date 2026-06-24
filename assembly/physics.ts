@@ -161,19 +161,35 @@ export function unpin(i: i32): void { storePinned(i, 0); }
 function growTree(): void {
   const nc = oCapacity * 2;
 
+  const oldFPtr = oFloatsPtr;
   const newFPtr = heap.alloc(<usize>(nc * FLOAT_STRIDE * 4));
-  memory.copy(newFPtr, oFloatsPtr, <usize>(oCapacity * FLOAT_STRIDE * 4));
+  memory.copy(newFPtr, oldFPtr, <usize>(oCapacity * FLOAT_STRIDE * 4));
   oFloatsPtr = newFPtr;
+  heap.free(oldFPtr);
 
+  const oldIPtr = oIntsPtr;
   const newIPtr = heap.alloc(<usize>(nc * INT_STRIDE * 4));
-  memory.copy(newIPtr, oIntsPtr, <usize>(oCapacity * INT_STRIDE * 4));
+  memory.copy(newIPtr, oldIPtr, <usize>(oCapacity * INT_STRIDE * 4));
   oIntsPtr = newIPtr;
+  heap.free(oldIPtr);
 
+  const oldSPtr = oStackPtr;
   const newSPtr = heap.alloc(<usize>(nc * 4));
-  memory.copy(newSPtr, oStackPtr, <usize>(oStackCap * 4));
+  memory.copy(newSPtr, oldSPtr, <usize>(oStackCap * 4));
   oStackPtr = newSPtr;
+  heap.free(oldSPtr);
 
   oCapacity = nc;
+  oStackCap = nc;
+}
+
+function growStack(): void {
+  const nc = oStackCap * 2;
+  const oldSPtr = oStackPtr;
+  const newSPtr = heap.alloc(<usize>(nc * 4));
+  memory.copy(newSPtr, oldSPtr, <usize>(oStackCap * 4));
+  heap.free(oldSPtr);
+  oStackPtr = newSPtr;
   oStackCap = nc;
 }
 
@@ -271,7 +287,7 @@ function computeForce(i: i32, theta: f64, repulsion: f64): void {
       for (let k = 1; k <= 8; k++) {
         const ci = oIAt(cellIdx, k);
         if (ci !== -1) {
-          if (top >= oStackCap) growTree();
+          if (top >= oStackCap) growStack();
           storeOStack(top++, ci);
         }
       }
