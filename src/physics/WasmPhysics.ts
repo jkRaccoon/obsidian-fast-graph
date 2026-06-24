@@ -38,13 +38,11 @@ export class WasmPhysics {
   private e: PhysicsExports;
   private count: number;
   private params: ForceParams;
-  private posView: Float32Array;
 
   private constructor(e: PhysicsExports, count: number, params: ForceParams) {
     this.e = e;
     this.count = count;
     this.params = { ...params };
-    this.posView = new Float32Array(e.memory.buffer, e.positionsPtr(), count * 3);
   }
 
   static async create(opts: {
