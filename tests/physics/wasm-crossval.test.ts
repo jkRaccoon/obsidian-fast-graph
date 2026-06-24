@@ -84,3 +84,21 @@ describe("WASM vs JS 교차 검증 (1틱)", () => {
     });
   }
 });
+
+import { WasmPhysics } from "../../src/physics/WasmPhysics";
+
+describe("WasmPhysics 래퍼", () => {
+  it("PhysicsEngine과 동일하게 1틱 후 positions 일치 + alpha 감쇠", async () => {
+    const g = makeGraph();
+    const params = { ...FORCE_DEFAULTS };
+    const wp = await WasmPhysics.create({
+      count: g.count, edges: g.edges, positions: g.positions.slice(), groupId: g.groupId, params,
+    });
+    wp.reheat();
+    const a0 = wp.alpha;
+    wp.tick();
+    expect(wp.alpha).toBeLessThan(a0);
+    const js = jsOneTick(g, params, 1.0);
+    expectClose(wp.positions, js, 1e-3);
+  });
+});
