@@ -51,7 +51,7 @@ self.onmessage = (ev: MessageEvent<MainToWorker>) => {
       const groupId = new Uint16Array(m.groupId);
       // WASM 우선, 실패 시 JS 폴백
       WasmPhysics.create({ count: m.count, edges, positions, groupId, params: m.params })
-        .then((wp) => { engine = wp; startLoop(); })
+        .then((wp) => { console.info("[fast-graph-3d] WASM physics 활성"); engine = wp; startLoop(); })
         .catch((err: unknown) => {
           console.warn("[fast-graph-3d] WASM 물리 불가, JS 폴백:", err);
           engine = new PhysicsEngine({ count: m.count, edges, positions, groupId, params: m.params });

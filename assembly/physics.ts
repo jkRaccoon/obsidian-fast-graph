@@ -222,7 +222,7 @@ function placeInChild(cellIdx: i32, body: i32): void {
   let childIdx = oIAt(cellIdx, 1 + oct);
   if (childIdx === -1) {
     childIdx = childCell(cellIdx, oct);
-    storeOI(cellIdx, 1 + oct, childIdx); // grow() 후 참조 대비 재계산
+    storeOI(cellIdx, 1 + oct, childIdx); // 자식 인덱스를 부모 셀에 기록(전역 포인터를 매번 재참조하므로 growTree 후에도 안전)
   }
   insertBody(childIdx, body);
 }

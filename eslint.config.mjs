@@ -19,4 +19,11 @@ export default tseslint.config(
       "obsidianmd/ui/sentence-case": "off",
     },
   },
+  {
+    files: ["src/physics/physics.worker.ts"],
+    rules: {
+      "no-console": "off",
+      "obsidianmd/rule-custom-message": "off",
+    },
+  },
 );
