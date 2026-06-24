@@ -52,7 +52,7 @@ export class WasmPhysics {
   }): Promise<WasmPhysics> {
     const bytes = await loadWasmBytes();
     const wasmResult = await (WebAssembly.instantiate as (bytes: BufferSource, importObject?: WebAssembly.Imports) => Promise<WebAssembly.WebAssemblyInstantiatedSource>)(bytes as unknown as ArrayBuffer, {
-      env: { abort: (_msg: unknown, _file: unknown, line: unknown, col: unknown) => { throw new Error(`wasm abort @ ${line}:${col}`); } },
+      env: { abort: (_msg: number, _file: number, line: number, col: number) => { throw new Error(`wasm abort @ ${line}:${col}`); } },
     });
     const e = wasmResult.instance.exports as unknown as PhysicsExports;
     let numGroups = 1;
