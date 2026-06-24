@@ -1,31 +1,34 @@
-// assembly/physics.ts — Barnes-Hut 물리 (JS PhysicsEngine/Octree의 AssemblyScript 포팅)
+// assembly/physics.ts — Barnes-Hut 물리 (raw linear-memory 버전)
+// 모든 내부 버퍼 접근을 load<T>/store<T>로 교체하여 managed 배열 오버헤드 제거
 
 const FLOAT_STRIDE: i32 = 8;   // cx cy cz half mass comx comy comz
 const INT_STRIDE: i32 = 9;     // body + children[0..7]
 const CAPACITY_FACTOR: i32 = 16;
 const ALPHA_DECAY: f64 = 0.0228;
 
-// 노드 버퍼
+// 카운트/크기
 let count: i32 = 0;
 let edgeCount: i32 = 0;
 let numGroups: i32 = 0;
-let positions: Float32Array = new Float32Array(0);
-let velocities: Float32Array = new Float32Array(0);
-let edges: Int32Array = new Int32Array(0);
-let groupId: Uint16Array = new Uint16Array(0);
-let force: Float32Array = new Float32Array(0);
-let pinned: Uint8Array = new Uint8Array(0);
+
+// raw 포인터 — heap.alloc()이 반환하는 usize
+let posPtr: usize = 0;
+let velPtr: usize = 0;
+let edgePtr: usize = 0;
+let groupPtr: usize = 0;
+let forcePtr: usize = 0;
+let pinnedPtr: usize = 0;
 
 // 그룹 힘 스크래치
-let gSum: Float32Array = new Float32Array(0);
-let gCount: Float32Array = new Float32Array(0);
-let gCen: Float32Array = new Float32Array(0);
-let gSep: Float32Array = new Float32Array(0);
+let gSumPtr: usize = 0;
+let gCountPtr: usize = 0;
+let gCenPtr: usize = 0;
+let gSepPtr: usize = 0;
 
 // octree 풀
-let oFloats: Float32Array = new Float32Array(0);
-let oInts: Int32Array = new Int32Array(0);
-let oStack: Int32Array = new Int32Array(0);
+let oFloatsPtr: usize = 0;
+let oIntsPtr: usize = 0;
+let oStackPtr: usize = 0;
 let oCapacity: i32 = 0;
 let oSize: i32 = 0;
 
@@ -33,28 +36,112 @@ let oSize: i32 = 0;
 let pRep: f64 = 0, pLs: f64 = 0, pLd: f64 = 0, pGrav: f64 = 0, pDamp: f64 = 0, pTheta: f64 = 0, pGc: f64 = 0, pGs: f64 = 0;
 let alpha: f64 = 1.0;
 
+// ----- 인라인 접근자 헬퍼 (인라인 상수 전개를 위해 매크로 대신 함수 사용) -----
+// f32 버퍼: offset = i << 2
+// i32 버퍼: offset = i << 2
+// u16 버퍼: offset = i << 1
+// u8  버퍼: offset = i
+
+// positions (f32, stride 3)
+@inline function posX(i: i32): f64 { return <f64>load<f32>(posPtr + (<usize>(i * 3) << 2)); }
+@inline function posY(i: i32): f64 { return <f64>load<f32>(posPtr + (<usize>(i * 3 + 1) << 2)); }
+@inline function posZ(i: i32): f64 { return <f64>load<f32>(posPtr + (<usize>(i * 3 + 2) << 2)); }
+@inline function storePosX(i: i32, v: f32): void { store<f32>(posPtr + (<usize>(i * 3) << 2), v); }
+@inline function storePosY(i: i32, v: f32): void { store<f32>(posPtr + (<usize>(i * 3 + 1) << 2), v); }
+@inline function storePosZ(i: i32, v: f32): void { store<f32>(posPtr + (<usize>(i * 3 + 2) << 2), v); }
+
+// velocities (f32, stride 3)
+@inline function velX(i: i32): f64 { return <f64>load<f32>(velPtr + (<usize>(i * 3) << 2)); }
+@inline function velY(i: i32): f64 { return <f64>load<f32>(velPtr + (<usize>(i * 3 + 1) << 2)); }
+@inline function velZ(i: i32): f64 { return <f64>load<f32>(velPtr + (<usize>(i * 3 + 2) << 2)); }
+@inline function storeVelX(i: i32, v: f32): void { store<f32>(velPtr + (<usize>(i * 3) << 2), v); }
+@inline function storeVelY(i: i32, v: f32): void { store<f32>(velPtr + (<usize>(i * 3 + 1) << 2), v); }
+@inline function storeVelZ(i: i32, v: f32): void { store<f32>(velPtr + (<usize>(i * 3 + 2) << 2), v); }
+
+// force (f32, stride 3)
+@inline function frcAt(idx: i32): f64 { return <f64>load<f32>(forcePtr + (<usize>idx << 2)); }
+@inline function storeFrc(idx: i32, v: f32): void { store<f32>(forcePtr + (<usize>idx << 2), v); }
+
+// edges (i32, stride 2*edgeCount elements stored as pairs)
+@inline function edgeA(e: i32): i32 { return load<i32>(edgePtr + (<usize>(e * 2) << 2)); }
+@inline function edgeB(e: i32): i32 { return load<i32>(edgePtr + (<usize>(e * 2 + 1) << 2)); }
+
+// groupId (u16)
+@inline function grpId(i: i32): i32 { return <i32>load<u16>(groupPtr + (<usize>i << 1)); }
+
+// pinned (u8)
+@inline function isPinned(i: i32): bool { return load<u8>(pinnedPtr + <usize>i) != 0; }
+@inline function storePinned(i: i32, v: u8): void { store<u8>(pinnedPtr + <usize>i, v); }
+
+// oFloats (f32, stride FLOAT_STRIDE)
+@inline function oFAt(cellIdx: i32, k: i32): f64 { return <f64>load<f32>(oFloatsPtr + (<usize>(cellIdx * FLOAT_STRIDE + k) << 2)); }
+@inline function storeOF(cellIdx: i32, k: i32, v: f32): void { store<f32>(oFloatsPtr + (<usize>(cellIdx * FLOAT_STRIDE + k) << 2), v); }
+
+// oInts (i32, stride INT_STRIDE)
+@inline function oIAt(cellIdx: i32, k: i32): i32 { return load<i32>(oIntsPtr + (<usize>(cellIdx * INT_STRIDE + k) << 2)); }
+@inline function storeOI(cellIdx: i32, k: i32, v: i32): void { store<i32>(oIntsPtr + (<usize>(cellIdx * INT_STRIDE + k) << 2), v); }
+
+// oStack (i32)
+@inline function oStackAt(top: i32): i32 { return load<i32>(oStackPtr + (<usize>top << 2)); }
+@inline function storeOStack(top: i32, v: i32): void { store<i32>(oStackPtr + (<usize>top << 2), v); }
+let oStackCap: i32 = 0; // 별도 추적 (oCapacity와 같이 성장)
+
+// gSum (f32, stride 3)
+@inline function gSumAt(idx: i32): f64 { return <f64>load<f32>(gSumPtr + (<usize>idx << 2)); }
+@inline function storeGSum(idx: i32, v: f32): void { store<f32>(gSumPtr + (<usize>idx << 2), v); }
+
+// gCount (f32)
+@inline function gCntAt(g: i32): f64 { return <f64>load<f32>(gCountPtr + (<usize>g << 2)); }
+@inline function storeGCnt(g: i32, v: f32): void { store<f32>(gCountPtr + (<usize>g << 2), v); }
+
+// gCen (f32, stride 3)
+@inline function gCenAt(idx: i32): f64 { return <f64>load<f32>(gCenPtr + (<usize>idx << 2)); }
+@inline function storeGCen(idx: i32, v: f32): void { store<f32>(gCenPtr + (<usize>idx << 2), v); }
+
+// gSep (f32, stride 3)
+@inline function gSepAt(idx: i32): f64 { return <f64>load<f32>(gSepPtr + (<usize>idx << 2)); }
+@inline function storeGSep(idx: i32, v: f32): void { store<f32>(gSepPtr + (<usize>idx << 2), v); }
+
+// ---- 메모리 할당 ----
 export function allocate(c: i32, ec: i32, ng: i32): void {
   count = c; edgeCount = ec; numGroups = ng;
-  positions = new Float32Array(c * 3);
-  velocities = new Float32Array(c * 3);
-  edges = new Int32Array(ec * 2);
-  groupId = new Uint16Array(c);
-  force = new Float32Array(c * 3);
-  pinned = new Uint8Array(c);
-  gSum = new Float32Array(ng * 3);
-  gCount = new Float32Array(ng);
-  gCen = new Float32Array(ng * 3);
-  gSep = new Float32Array(ng * 3);
+
+  // f32 배열: c*3 elements = c*3*4 bytes
+  posPtr    = heap.alloc(<usize>(c * 3 * 4));
+  velPtr    = heap.alloc(<usize>(c * 3 * 4));
+  forcePtr  = heap.alloc(<usize>(c * 3 * 4));
+
+  // i32 배열: ec*2 elements = ec*2*4 bytes
+  edgePtr   = heap.alloc(<usize>(ec * 2 * 4));
+
+  // u16 배열: c elements = c*2 bytes
+  groupPtr  = heap.alloc(<usize>(c * 2));
+
+  // u8 배열: c elements = c bytes
+  pinnedPtr = heap.alloc(<usize>(c));
+
+  // 그룹 스크래치 (f32)
+  gSumPtr   = heap.alloc(<usize>(ng * 3 * 4));
+  gCountPtr = heap.alloc(<usize>(ng * 4));
+  gCenPtr   = heap.alloc(<usize>(ng * 3 * 4));
+  gSepPtr   = heap.alloc(<usize>(ng * 3 * 4));
+
+  // octree 풀
   oCapacity = <i32>Math.max(<f64>(c * CAPACITY_FACTOR), 64.0);
-  oFloats = new Float32Array(oCapacity * FLOAT_STRIDE);
-  oInts = new Int32Array(oCapacity * INT_STRIDE);
-  oStack = new Int32Array(oCapacity);
+  oStackCap = oCapacity;
+  oFloatsPtr = heap.alloc(<usize>(oCapacity * FLOAT_STRIDE * 4));
+  oIntsPtr   = heap.alloc(<usize>(oCapacity * INT_STRIDE * 4));
+  oStackPtr  = heap.alloc(<usize>(oCapacity * 4));
+
+  // 읽기 전에 zero-init이 필요한 버퍼
+  memory.fill(velPtr,    0, <usize>(c * 3 * 4));
+  memory.fill(pinnedPtr, 0, <usize>(c));
 }
 
-export function positionsPtr(): usize { return positions.dataStart; }
-export function velocitiesPtr(): usize { return velocities.dataStart; }
-export function edgesPtr(): usize { return edges.dataStart; }
-export function groupIdPtr(): usize { return groupId.dataStart; }
+export function positionsPtr(): usize { return posPtr; }
+export function velocitiesPtr(): usize { return velPtr; }
+export function edgesPtr(): usize { return edgePtr; }
+export function groupIdPtr(): usize { return groupPtr; }
 
 export function setParams(rep: f64, ls: f64, ld: f64, grav: f64, damp: f64, th: f64, gc: f64, gs: f64): void {
   pRep = rep; pLs = ls; pLd = ld; pGrav = grav; pDamp = damp; pTheta = th; pGc = gc; pGs = gs;
@@ -64,74 +151,78 @@ export function getAlpha(): f64 { return alpha; }
 export function reheat(): void { alpha = 1.0; }
 
 export function pin(i: i32, x: f32, y: f32, z: f32): void {
-  pinned[i] = 1;
-  positions[i * 3] = x; positions[i * 3 + 1] = y; positions[i * 3 + 2] = z;
-  velocities[i * 3] = 0; velocities[i * 3 + 1] = 0; velocities[i * 3 + 2] = 0;
+  storePinned(i, 1);
+  storePosX(i, x); storePosY(i, y); storePosZ(i, z);
+  storeVelX(i, 0); storeVelY(i, 0); storeVelZ(i, 0);
 }
-export function unpin(i: i32): void { pinned[i] = 0; }
+export function unpin(i: i32): void { storePinned(i, 0); }
 
 // ---- Octree ----
 function growTree(): void {
   const nc = oCapacity * 2;
-  const nf = new Float32Array(nc * FLOAT_STRIDE); nf.set(oFloats);
-  const ni = new Int32Array(nc * INT_STRIDE); ni.set(oInts);
-  const ns = new Int32Array(nc); ns.set(oStack);
-  oFloats = nf; oInts = ni; oStack = ns; oCapacity = nc;
+
+  const newFPtr = heap.alloc(<usize>(nc * FLOAT_STRIDE * 4));
+  memory.copy(newFPtr, oFloatsPtr, <usize>(oCapacity * FLOAT_STRIDE * 4));
+  oFloatsPtr = newFPtr;
+
+  const newIPtr = heap.alloc(<usize>(nc * INT_STRIDE * 4));
+  memory.copy(newIPtr, oIntsPtr, <usize>(oCapacity * INT_STRIDE * 4));
+  oIntsPtr = newIPtr;
+
+  const newSPtr = heap.alloc(<usize>(nc * 4));
+  memory.copy(newSPtr, oStackPtr, <usize>(oStackCap * 4));
+  oStackPtr = newSPtr;
+
+  oCapacity = nc;
+  oStackCap = nc;
 }
 
 function allocCell(cx: f64, cy: f64, cz: f64, half: f64): i32 {
   const idx = oSize;
   if (idx >= oCapacity) growTree();
   oSize++;
-  const fi = idx * FLOAT_STRIDE;
-  oFloats[fi + 0] = <f32>cx; oFloats[fi + 1] = <f32>cy; oFloats[fi + 2] = <f32>cz; oFloats[fi + 3] = <f32>half;
-  oFloats[fi + 4] = 0; oFloats[fi + 5] = 0; oFloats[fi + 6] = 0; oFloats[fi + 7] = 0;
-  const ii = idx * INT_STRIDE;
-  oInts[ii + 0] = -1;
-  for (let k = 1; k <= 8; k++) oInts[ii + k] = -1;
+  storeOF(idx, 0, <f32>cx); storeOF(idx, 1, <f32>cy); storeOF(idx, 2, <f32>cz); storeOF(idx, 3, <f32>half);
+  storeOF(idx, 4, 0); storeOF(idx, 5, 0); storeOF(idx, 6, 0); storeOF(idx, 7, 0);
+  storeOI(idx, 0, -1);
+  for (let k = 1; k <= 8; k++) storeOI(idx, k, -1);
   return idx;
 }
 
 function octant(cellIdx: i32, x: f64, y: f64, z: f64): i32 {
-  const fi = cellIdx * FLOAT_STRIDE;
-  return (x >= <f64>oFloats[fi + 0] ? 1 : 0) | (y >= <f64>oFloats[fi + 1] ? 2 : 0) | (z >= <f64>oFloats[fi + 2] ? 4 : 0);
+  return (x >= oFAt(cellIdx, 0) ? 1 : 0) | (y >= oFAt(cellIdx, 1) ? 2 : 0) | (z >= oFAt(cellIdx, 2) ? 4 : 0);
 }
 
 function childCell(parentIdx: i32, oct: i32): i32 {
-  const fi = parentIdx * FLOAT_STRIDE;
-  const h = <f64>oFloats[fi + 3] / 2.0;
-  const cx = <f64>oFloats[fi + 0] + ((oct & 1) != 0 ? h : -h);
-  const cy = <f64>oFloats[fi + 1] + ((oct & 2) != 0 ? h : -h);
-  const cz = <f64>oFloats[fi + 2] + ((oct & 4) != 0 ? h : -h);
+  const h = oFAt(parentIdx, 3) / 2.0;
+  const cx = oFAt(parentIdx, 0) + ((oct & 1) != 0 ? h : -h);
+  const cy = oFAt(parentIdx, 1) + ((oct & 2) != 0 ? h : -h);
+  const cz = oFAt(parentIdx, 2) + ((oct & 4) != 0 ? h : -h);
   return allocCell(cx, cy, cz, h);
 }
 
 function placeInChild(cellIdx: i32, body: i32): void {
-  const x = <f64>positions[body * 3], y = <f64>positions[body * 3 + 1], z = <f64>positions[body * 3 + 2];
+  const x = posX(body), y = posY(body), z = posZ(body);
   const oct = octant(cellIdx, x, y, z);
-  const ii = cellIdx * INT_STRIDE;
-  let childIdx = oInts[ii + 1 + oct];
+  let childIdx = oIAt(cellIdx, 1 + oct);
   if (childIdx === -1) {
     childIdx = childCell(cellIdx, oct);
-    oInts[cellIdx * INT_STRIDE + 1 + oct] = childIdx; // grow() 후 참조 대비 재계산
+    storeOI(cellIdx, 1 + oct, childIdx); // grow() 후 참조 대비 재계산
   }
   insertBody(childIdx, body);
 }
 
 function insertBody(cellIdx: i32, body: i32): void {
-  const x = <f64>positions[body * 3], y = <f64>positions[body * 3 + 1], z = <f64>positions[body * 3 + 2];
-  const fi = cellIdx * FLOAT_STRIDE;
-  const ii = cellIdx * INT_STRIDE;
-  oFloats[fi + 4] = <f32>(<f64>oFloats[fi + 4] + 1.0);
-  oFloats[fi + 5] = <f32>(<f64>oFloats[fi + 5] + x);
-  oFloats[fi + 6] = <f32>(<f64>oFloats[fi + 6] + y);
-  oFloats[fi + 7] = <f32>(<f64>oFloats[fi + 7] + z);
-  const currentBody = oInts[ii + 0];
-  const hasChildren = oInts[ii + 1] !== -1 || oInts[ii + 2] !== -1 || oInts[ii + 3] !== -1 || oInts[ii + 4] !== -1
-    || oInts[ii + 5] !== -1 || oInts[ii + 6] !== -1 || oInts[ii + 7] !== -1 || oInts[ii + 8] !== -1;
-  if (currentBody === -1 && !hasChildren) { oInts[ii + 0] = body; return; }
-  if (!hasChildren) { const existing = currentBody; oInts[ii + 0] = -1; placeInChild(cellIdx, existing); }
-  if (<f64>oFloats[fi + 3] < 1e-4) return;
+  const x = posX(body), y = posY(body), z = posZ(body);
+  storeOF(cellIdx, 4, <f32>(oFAt(cellIdx, 4) + 1.0));
+  storeOF(cellIdx, 5, <f32>(oFAt(cellIdx, 5) + x));
+  storeOF(cellIdx, 6, <f32>(oFAt(cellIdx, 6) + y));
+  storeOF(cellIdx, 7, <f32>(oFAt(cellIdx, 7) + z));
+  const currentBody = oIAt(cellIdx, 0);
+  const hasChildren = oIAt(cellIdx, 1) !== -1 || oIAt(cellIdx, 2) !== -1 || oIAt(cellIdx, 3) !== -1 || oIAt(cellIdx, 4) !== -1
+    || oIAt(cellIdx, 5) !== -1 || oIAt(cellIdx, 6) !== -1 || oIAt(cellIdx, 7) !== -1 || oIAt(cellIdx, 8) !== -1;
+  if (currentBody === -1 && !hasChildren) { storeOI(cellIdx, 0, body); return; }
+  if (!hasChildren) { const existing = currentBody; storeOI(cellIdx, 0, -1); placeInChild(cellIdx, existing); }
+  if (oFAt(cellIdx, 3) < 1e-4) return;
   placeInChild(cellIdx, body);
 }
 
@@ -139,7 +230,11 @@ function rebuildTree(): void {
   oSize = 0;
   if (count === 0) return;
   let mn: f64 = Infinity, mx: f64 = -Infinity;
-  for (let i = 0; i < count * 3; i++) { const v = <f64>positions[i]; if (v < mn) mn = v; if (v > mx) mx = v; }
+  for (let i = 0; i < count * 3; i++) {
+    const v = <f64>load<f32>(posPtr + (<usize>i << 2));
+    if (v < mn) mn = v;
+    if (v > mx) mx = v;
+  }
   if (!isFinite(mn)) { mn = -1.0; mx = 1.0; }
   const center = (mn + mx) / 2.0;
   const half = Math.max((mx - mn) / 2.0, 1e-3) + 1e-3;
@@ -152,34 +247,32 @@ let outX: f64 = 0, outY: f64 = 0, outZ: f64 = 0;
 function computeForce(i: i32, theta: f64, repulsion: f64): void {
   outX = 0; outY = 0; outZ = 0;
   if (oSize === 0) return;
-  const px = <f64>positions[i * 3], py = <f64>positions[i * 3 + 1], pz = <f64>positions[i * 3 + 2];
+  const px = posX(i), py = posY(i), pz = posZ(i);
   let top = 0;
-  oStack[top++] = 0;
+  storeOStack(top++, 0);
   while (top > 0) {
-    const cellIdx = oStack[--top];
-    const fi = cellIdx * FLOAT_STRIDE;
-    const ii = cellIdx * INT_STRIDE;
-    const mass = <f64>oFloats[fi + 4];
+    const cellIdx = oStackAt(--top);
+    const mass = oFAt(cellIdx, 4);
     if (mass === 0) continue;
-    const body = oInts[ii + 0];
+    const body = oIAt(cellIdx, 0);
     if (body === i && mass === 1.0) continue;
-    const cmx = <f64>oFloats[fi + 5] / mass, cmy = <f64>oFloats[fi + 6] / mass, cmz = <f64>oFloats[fi + 7] / mass;
+    const cmx = oFAt(cellIdx, 5) / mass, cmy = oFAt(cellIdx, 6) / mass, cmz = oFAt(cellIdx, 7) / mass;
     let dx = px - cmx, dy = py - cmy, dz = pz - cmz;
     let dist2 = dx * dx + dy * dy + dz * dz;
     if (dist2 < 1e-6) { dx = 1e-3; dy = 0; dz = 0; dist2 = 1e-6; }
     const dist = Math.sqrt(dist2);
-    const half = <f64>oFloats[fi + 3];
-    const isLeaf = oInts[ii + 1] === -1 && oInts[ii + 2] === -1 && oInts[ii + 3] === -1 && oInts[ii + 4] === -1
-      && oInts[ii + 5] === -1 && oInts[ii + 6] === -1 && oInts[ii + 7] === -1 && oInts[ii + 8] === -1;
+    const half = oFAt(cellIdx, 3);
+    const isLeaf = oIAt(cellIdx, 1) === -1 && oIAt(cellIdx, 2) === -1 && oIAt(cellIdx, 3) === -1 && oIAt(cellIdx, 4) === -1
+      && oIAt(cellIdx, 5) === -1 && oIAt(cellIdx, 6) === -1 && oIAt(cellIdx, 7) === -1 && oIAt(cellIdx, 8) === -1;
     if (isLeaf || (half * 2.0) / dist < theta) {
       const fmag = (repulsion * mass) / dist2;
       outX += (dx / dist) * fmag; outY += (dy / dist) * fmag; outZ += (dz / dist) * fmag;
     } else {
       for (let k = 1; k <= 8; k++) {
-        const ci = oInts[ii + k];
+        const ci = oIAt(cellIdx, k);
         if (ci !== -1) {
-          if (top >= oStack.length) { const ns = new Int32Array(oStack.length * 2); ns.set(oStack); oStack = ns; }
-          oStack[top++] = ci;
+          if (top >= oStackCap) growTree();
+          storeOStack(top++, ci);
         }
       }
     }
@@ -187,30 +280,33 @@ function computeForce(i: i32, theta: f64, repulsion: f64): void {
 }
 
 export function tick(): f64 {
-  const f = force;
-  for (let i = 0; i < count * 3; i++) f[i] = 0;
+  // force 버퍼 zero-init
+  memory.fill(forcePtr, 0, <usize>(count * 3 * 4));
 
-  // 1) 척력 (Barnes-Hut) — JS와 동일하게 매 tick rebuild + 전 노드 computeForce
+  // 1) 척력 (Barnes-Hut)
   rebuildTree();
   for (let i = 0; i < count; i++) {
     computeForce(i, pTheta, pRep);
-    f[i * 3] = <f32>(<f64>f[i * 3] + outX);
-    f[i * 3 + 1] = <f32>(<f64>f[i * 3 + 1] + outY);
-    f[i * 3 + 2] = <f32>(<f64>f[i * 3 + 2] + outZ);
+    const ix = i * 3;
+    storeFrc(ix,     <f32>(frcAt(ix)     + outX));
+    storeFrc(ix + 1, <f32>(frcAt(ix + 1) + outY));
+    storeFrc(ix + 2, <f32>(frcAt(ix + 2) + outZ));
   }
 
   // 2) 인력 (spring)
-  for (let e = 0; e < edges.length; e += 2) {
-    const a = edges[e], b = edges[e + 1];
-    let dx = <f64>positions[b * 3] - <f64>positions[a * 3];
-    let dy = <f64>positions[b * 3 + 1] - <f64>positions[a * 3 + 1];
-    let dz = <f64>positions[b * 3 + 2] - <f64>positions[a * 3 + 2];
+  for (let e = 0; e < edgeCount; e++) {
+    const a = edgeA(e), b = edgeB(e);
+    let dx = posX(b) - posX(a);
+    let dy = posY(b) - posY(a);
+    let dz = posZ(b) - posZ(a);
     let d = Math.sqrt(dx * dx + dy * dy + dz * dz);
     if (d === 0) d = 1e-3;
     const k = pLs * (d - pLd) / d;
     const fx = dx * k, fy = dy * k, fz = dz * k;
-    f[a * 3] = <f32>(<f64>f[a * 3] + fx); f[a * 3 + 1] = <f32>(<f64>f[a * 3 + 1] + fy); f[a * 3 + 2] = <f32>(<f64>f[a * 3 + 2] + fz);
-    f[b * 3] = <f32>(<f64>f[b * 3] - fx); f[b * 3 + 1] = <f32>(<f64>f[b * 3 + 1] - fy); f[b * 3 + 2] = <f32>(<f64>f[b * 3 + 2] - fz);
+    const ax = a * 3, ay = ax + 1, az = ax + 2;
+    const bx = b * 3, by = bx + 1, bz = bx + 2;
+    storeFrc(ax, <f32>(frcAt(ax) + fx)); storeFrc(ay, <f32>(frcAt(ay) + fy)); storeFrc(az, <f32>(frcAt(az) + fz));
+    storeFrc(bx, <f32>(frcAt(bx) - fx)); storeFrc(by, <f32>(frcAt(by) - fy)); storeFrc(bz, <f32>(frcAt(bz) - fz));
   }
 
   // 2.5) 그룹 힘
@@ -218,78 +314,78 @@ export function tick(): f64 {
   const doSeparation = pGs > 0 && numGroups > 1;
   if (doCohesion || doSeparation) {
     const G = numGroups;
-    for (let i = 0; i < G * 3; i++) gSum[i] = 0;
-    for (let i = 0; i < G; i++) gCount[i] = 0;
+    memory.fill(gSumPtr,   0, <usize>(G * 3 * 4));
+    memory.fill(gCountPtr, 0, <usize>(G * 4));
     for (let i = 0; i < count; i++) {
-      const g = <i32>groupId[i];
-      gSum[g * 3] = <f32>(<f64>gSum[g * 3] + <f64>positions[i * 3]);
-      gSum[g * 3 + 1] = <f32>(<f64>gSum[g * 3 + 1] + <f64>positions[i * 3 + 1]);
-      gSum[g * 3 + 2] = <f32>(<f64>gSum[g * 3 + 2] + <f64>positions[i * 3 + 2]);
-      gCount[g] = <f32>(<f64>gCount[g] + 1.0);
+      const g = grpId(i);
+      storeGSum(g * 3,     <f32>(gSumAt(g * 3)     + posX(i)));
+      storeGSum(g * 3 + 1, <f32>(gSumAt(g * 3 + 1) + posY(i)));
+      storeGSum(g * 3 + 2, <f32>(gSumAt(g * 3 + 2) + posZ(i)));
+      storeGCnt(g, <f32>(gCntAt(g) + 1.0));
     }
     for (let g = 0; g < G; g++) {
-      const c = <f64>gCount[g] !== 0 ? <f64>gCount[g] : 1.0;
-      gCen[g * 3] = <f32>(<f64>gSum[g * 3] / c);
-      gCen[g * 3 + 1] = <f32>(<f64>gSum[g * 3 + 1] / c);
-      gCen[g * 3 + 2] = <f32>(<f64>gSum[g * 3 + 2] / c);
+      const c = gCntAt(g) !== 0 ? gCntAt(g) : 1.0;
+      storeGCen(g * 3,     <f32>(gSumAt(g * 3)     / c));
+      storeGCen(g * 3 + 1, <f32>(gSumAt(g * 3 + 1) / c));
+      storeGCen(g * 3 + 2, <f32>(gSumAt(g * 3 + 2) / c));
     }
     if (doSeparation) {
-      for (let i = 0; i < G * 3; i++) gSep[i] = 0;
+      memory.fill(gSepPtr, 0, <usize>(G * 3 * 4));
       for (let g = 0; g < G; g++) {
-        if (<f64>gCount[g] === 0) continue;
+        if (gCntAt(g) === 0) continue;
         for (let h = 0; h < G; h++) {
-          if (h === g || <f64>gCount[h] === 0) continue;
-          let dx = <f64>gCen[g * 3] - <f64>gCen[h * 3];
-          let dy = <f64>gCen[g * 3 + 1] - <f64>gCen[h * 3 + 1];
-          let dz = <f64>gCen[g * 3 + 2] - <f64>gCen[h * 3 + 2];
+          if (h === g || gCntAt(h) === 0) continue;
+          let dx = gCenAt(g * 3)     - gCenAt(h * 3);
+          let dy = gCenAt(g * 3 + 1) - gCenAt(h * 3 + 1);
+          let dz = gCenAt(g * 3 + 2) - gCenAt(h * 3 + 2);
           let d2 = dx * dx + dy * dy + dz * dz;
           if (d2 < 1e-3) { dx = <f64>(g - h); dy = 0; dz = 0; d2 = <f64>((g - h) * (g - h)); if (d2 === 0) d2 = 1e-3; }
           const dd = Math.sqrt(d2);
-          const fmag = (pGs * <f64>gCount[h]) / d2;
-          gSep[g * 3] = <f32>(<f64>gSep[g * 3] + (dx / dd) * fmag);
-          gSep[g * 3 + 1] = <f32>(<f64>gSep[g * 3 + 1] + (dy / dd) * fmag);
-          gSep[g * 3 + 2] = <f32>(<f64>gSep[g * 3 + 2] + (dz / dd) * fmag);
+          const fmag = (pGs * gCntAt(h)) / d2;
+          storeGSep(g * 3,     <f32>(gSepAt(g * 3)     + (dx / dd) * fmag));
+          storeGSep(g * 3 + 1, <f32>(gSepAt(g * 3 + 1) + (dy / dd) * fmag));
+          storeGSep(g * 3 + 2, <f32>(gSepAt(g * 3 + 2) + (dz / dd) * fmag));
         }
       }
     }
     for (let i = 0; i < count; i++) {
-      const g = <i32>groupId[i];
+      const g = grpId(i);
+      const ix = i * 3, iy = ix + 1, iz = ix + 2;
       if (doCohesion) {
-        f[i * 3] = <f32>(<f64>f[i * 3] + (<f64>gCen[g * 3] - <f64>positions[i * 3]) * pGc);
-        f[i * 3 + 1] = <f32>(<f64>f[i * 3 + 1] + (<f64>gCen[g * 3 + 1] - <f64>positions[i * 3 + 1]) * pGc);
-        f[i * 3 + 2] = <f32>(<f64>f[i * 3 + 2] + (<f64>gCen[g * 3 + 2] - <f64>positions[i * 3 + 2]) * pGc);
+        storeFrc(ix, <f32>(frcAt(ix) + (gCenAt(g * 3)     - posX(i)) * pGc));
+        storeFrc(iy, <f32>(frcAt(iy) + (gCenAt(g * 3 + 1) - posY(i)) * pGc));
+        storeFrc(iz, <f32>(frcAt(iz) + (gCenAt(g * 3 + 2) - posZ(i)) * pGc));
       }
       if (doSeparation) {
-        f[i * 3] = <f32>(<f64>f[i * 3] + <f64>gSep[g * 3]);
-        f[i * 3 + 1] = <f32>(<f64>f[i * 3 + 1] + <f64>gSep[g * 3 + 1]);
-        f[i * 3 + 2] = <f32>(<f64>f[i * 3 + 2] + <f64>gSep[g * 3 + 2]);
+        storeFrc(ix, <f32>(frcAt(ix) + gSepAt(g * 3)));
+        storeFrc(iy, <f32>(frcAt(iy) + gSepAt(g * 3 + 1)));
+        storeFrc(iz, <f32>(frcAt(iz) + gSepAt(g * 3 + 2)));
       }
     }
   }
 
   // 3) 중심화(gravity) + 적분 + 변위 클램프
-  // JS와 동일하게 중력을 f[]에 먼저 저장(f32 절단)한 후 적분
   const maxStep = pLd;
   const maxStep2 = maxStep * maxStep;
   for (let i = 0; i < count; i++) {
-    if (pinned[i] != 0) continue;
+    if (isPinned(i)) continue;
     const ix = i * 3, iy = ix + 1, iz = ix + 2;
     // gravity를 force 배열에 저장(f32 절단) — JS의 f[ix] -= pos*gravity 와 동일
-    f[ix] = <f32>(<f64>f[ix] - <f64>positions[ix] * pGrav);
-    f[iy] = <f32>(<f64>f[iy] - <f64>positions[iy] * pGrav);
-    f[iz] = <f32>(<f64>f[iz] - <f64>positions[iz] * pGrav);
-    let vx = (<f64>velocities[ix] + <f64>f[ix] * alpha) * pDamp;
-    let vy = (<f64>velocities[iy] + <f64>f[iy] * alpha) * pDamp;
-    let vz = (<f64>velocities[iz] + <f64>f[iz] * alpha) * pDamp;
+    storeFrc(ix, <f32>(frcAt(ix) - posX(i) * pGrav));
+    storeFrc(iy, <f32>(frcAt(iy) - posY(i) * pGrav));
+    storeFrc(iz, <f32>(frcAt(iz) - posZ(i) * pGrav));
+    let vx = (velX(i) + frcAt(ix) * alpha) * pDamp;
+    let vy = (velY(i) + frcAt(iy) * alpha) * pDamp;
+    let vz = (velZ(i) + frcAt(iz) * alpha) * pDamp;
     const sp2 = vx * vx + vy * vy + vz * vz;
     if (sp2 > maxStep2) {
       const scale = maxStep / Math.sqrt(sp2);
       vx *= scale; vy *= scale; vz *= scale;
     }
-    velocities[ix] = <f32>vx; velocities[iy] = <f32>vy; velocities[iz] = <f32>vz;
-    positions[ix] = <f32>(<f64>positions[ix] + vx);
-    positions[iy] = <f32>(<f64>positions[iy] + vy);
-    positions[iz] = <f32>(<f64>positions[iz] + vz);
+    storeVelX(i, <f32>vx); storeVelY(i, <f32>vy); storeVelZ(i, <f32>vz);
+    storePosX(i, <f32>(posX(i) + vx));
+    storePosY(i, <f32>(posY(i) + vy));
+    storePosZ(i, <f32>(posZ(i) + vz));
   }
 
   alpha += (0.0 - alpha) * ALPHA_DECAY;
