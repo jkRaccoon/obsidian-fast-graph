@@ -1,18 +1,28 @@
 import { PhysicsEngine } from "./PhysicsEngine";
+import { WasmPhysics } from "./WasmPhysics";
 import type { MainToWorker, WorkerToMain } from "./protocol";
 
-let engine: PhysicsEngine | null = null;
+// WASM/JS 공통으로 쓰는 최소 인터페이스
+interface Engine {
+  readonly positions: Float32Array;
+  readonly alpha: number;
+  readonly alphaMin: number;
+  tick(): void;
+  setParams(p: Partial<import("../types").ForceParams>): void;
+  pin(i: number, x: number, y: number, z: number): void;
+  unpin(i: number): void;
+  reheat(): void;
+}
+
+let engine: Engine | null = null;
 let timer: number | null = null;
 
 function post(msg: WorkerToMain, transfer?: Transferable[]) {
   (self as unknown as Worker).postMessage(msg, transfer ?? []);
 }
-
 function stopLoop() {
-  // Web Worker 컨텍스트라 window가 없어 self의 타이머 API를 사용한다.
   if (timer !== null) { self.clearInterval(timer); timer = null; }
 }
-
 function startLoop() {
   if (timer !== null || !engine) return;
   timer = self.setInterval(() => {
@@ -36,8 +46,14 @@ self.onmessage = (ev: MessageEvent<MainToWorker>) => {
       const positions = new Float32Array(m.positions);
       const edges = new Int32Array(m.edges);
       const groupId = new Uint16Array(m.groupId);
-      engine = new PhysicsEngine({ count: m.count, edges, positions, groupId, params: m.params });
-      startLoop();
+      // WASM 우선, 실패 시 JS 폴백
+      WasmPhysics.create({ count: m.count, edges, positions, groupId, params: m.params })
+        .then((wp) => { engine = wp; startLoop(); })
+        .catch((err: unknown) => {
+          console.warn("[fast-graph-3d] WASM 물리 불가, JS 폴백:", err);
+          engine = new PhysicsEngine({ count: m.count, edges, positions, groupId, params: m.params });
+          startLoop();
+        });
       break;
     }
     case "setParams": engine?.setParams(m.params); engine?.reheat(); startLoop(); break;

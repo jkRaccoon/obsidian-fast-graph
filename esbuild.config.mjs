@@ -21,6 +21,7 @@ async function buildWorker() {
     minify: prod,
     write: false,
     define: { "process.env.PHYSICS_WASM_B64": JSON.stringify(wasmB64) },
+    external: ["node:fs"],
   });
   return result.outputFiles[0].text;
 }

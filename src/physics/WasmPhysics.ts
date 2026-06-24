@@ -26,7 +26,9 @@ function base64ToBytes(b64: string): Uint8Array {
 }
 
 async function loadWasmBytes(): Promise<Uint8Array> {
-  const b64 = typeof process !== "undefined" ? process.env.PHYSICS_WASM_B64 : undefined;
+  // esbuild가 워커 번들 시 process.env.PHYSICS_WASM_B64를 base64 문자열 리터럴로 교체.
+  // 브라우저 워커에는 process가 없으므로 typeof process 가드를 쓰면 안 됨 — 직접 참조.
+  const b64 = process.env.PHYSICS_WASM_B64;
   if (b64) return base64ToBytes(b64);
   // Node(테스트) 폴백: 빌드 산출물을 직접 읽는다.
   const fs = await import("node:fs");
@@ -49,10 +51,10 @@ export class WasmPhysics {
     count: number; edges: Int32Array; positions: Float32Array; groupId: Uint16Array; params: ForceParams;
   }): Promise<WasmPhysics> {
     const bytes = await loadWasmBytes();
-    const { instance } = await WebAssembly.instantiate(bytes, {
+    const wasmResult = await (WebAssembly.instantiate as (bytes: BufferSource, importObject?: WebAssembly.Imports) => Promise<WebAssembly.WebAssemblyInstantiatedSource>)(bytes as unknown as ArrayBuffer, {
       env: { abort: (_msg: unknown, _file: unknown, line: unknown, col: unknown) => { throw new Error(`wasm abort @ ${line}:${col}`); } },
     });
-    const e = instance.exports as unknown as PhysicsExports;
+    const e = wasmResult.instance.exports as unknown as PhysicsExports;
     let numGroups = 1;
     for (let i = 0; i < opts.count; i++) if (opts.groupId[i] + 1 > numGroups) numGroups = opts.groupId[i] + 1;
     e.allocate(opts.count, opts.edges.length / 2, numGroups);
