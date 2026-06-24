@@ -1,6 +1,7 @@
 import { PhysicsEngine } from "./PhysicsEngine";
 import { WasmPhysics } from "./WasmPhysics";
 import type { MainToWorker, WorkerToMain } from "./protocol";
+import type { ForceParams } from "../types";
 
 // WASM/JS 공통으로 쓰는 최소 인터페이스
 interface Engine {
@@ -8,7 +9,7 @@ interface Engine {
   readonly alpha: number;
   readonly alphaMin: number;
   tick(): void;
-  setParams(p: Partial<import("../types").ForceParams>): void;
+  setParams(p: Partial<ForceParams>): void;
   pin(i: number, x: number, y: number, z: number): void;
   unpin(i: number): void;
   reheat(): void;
@@ -43,6 +44,8 @@ self.onmessage = (ev: MessageEvent<MainToWorker>) => {
   const m = ev.data;
   switch (m.type) {
     case "init": {
+      stopLoop();
+      engine = null;
       const positions = new Float32Array(m.positions);
       const edges = new Int32Array(m.edges);
       const groupId = new Uint16Array(m.groupId);
