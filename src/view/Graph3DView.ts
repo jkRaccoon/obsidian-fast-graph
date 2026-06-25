@@ -7,6 +7,7 @@ import { extractLocalGraph } from "../interaction/localGraph";
 import { buildGraphModel, seedPositions, type GraphModel } from "../data/GraphModel";
 import { neighborsOf } from "../interaction/hover";
 import { FORCE_DEFAULTS, type RenderSettings } from "../types";
+import { getStrings } from "../i18n";
 
 export const VIEW_TYPE_3D_GRAPH = "fast-graph-3d-view";
 
@@ -196,7 +197,7 @@ export class Graph3DView extends ItemView {
       Array.from(root.children).forEach((c) => { if (c !== this.label) c.remove(); });
       this.build(root);
     } catch (err) {
-      new Notice("Fast 3D Graph: 갱신 중 오류 — 콘솔 확인");
+      new Notice(getStrings().refreshError);
       console.error("[fast-graph-3d]", err);
     }
   }

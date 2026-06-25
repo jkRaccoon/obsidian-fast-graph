@@ -1,6 +1,7 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import type FastGraphPlugin from "./main";
 import type { GroupBy } from "./types";
+import { getStrings } from "./i18n";
 
 export class FastGraphSettingTab extends PluginSettingTab {
   constructor(app: App, private plugin: FastGraphPlugin) {
@@ -9,14 +10,15 @@ export class FastGraphSettingTab extends PluginSettingTab {
 
   display(): void {
     const { containerEl } = this;
+    const strings = getStrings().settings;
     containerEl.empty();
 
     new Setting(containerEl)
-      .setName("색상 그룹 기준")
-      .setDesc("노드 색상을 폴더/태그/없음 중 무엇으로 묶을지")
+      .setName(strings.groupByName)
+      .setDesc(strings.groupByDesc)
       .addDropdown((d) =>
         d
-          .addOptions({ folder: "폴더", tag: "태그", none: "없음" })
+          .addOptions(strings.groupByOptions)
           .setValue(this.plugin.settings.groupBy)
           .onChange(async (v) => {
             this.plugin.settings.groupBy = v as GroupBy;
@@ -25,8 +27,8 @@ export class FastGraphSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("로컬 그래프 깊이")
-      .setDesc("로컬 모드에서 펼칠 이웃 단계 수")
+      .setName(strings.localGraphDepthName)
+      .setDesc(strings.localGraphDepthDesc)
       .addSlider((s) =>
         s
           .setLimits(1, 4, 1)
@@ -38,7 +40,7 @@ export class FastGraphSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("노드 크기 (degree 스케일)")
+      .setName(strings.nodeDegreeScaleName)
       .addSlider((s) =>
         s
           .setLimits(0, 3, 0.1)
@@ -50,7 +52,7 @@ export class FastGraphSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("호버 라벨 표시")
+      .setName(strings.showLabelsName)
       .addToggle((t) =>
         t.setValue(this.plugin.settings.showLabels).onChange(async (v) => {
           this.plugin.settings.showLabels = v;
@@ -59,8 +61,8 @@ export class FastGraphSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("자동 회전")
-      .setDesc("그래프를 천천히 회전시켜 입체감을 줍니다 (끄면 멈춥니다)")
+      .setName(strings.autoRotateName)
+      .setDesc(strings.autoRotateDesc)
       .addToggle((t) =>
         t.setValue(this.plugin.settings.autoRotate).onChange(async (v) => {
           // 시뮬레이션 재시작 없이 즉시 토글
@@ -69,8 +71,8 @@ export class FastGraphSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Obsidian 제외 파일 반영")
-      .setDesc("설정 → 파일 및 링크 → 제외할 파일 목록에 해당하는 파일을 그래프에서 숨깁니다")
+      .setName(strings.respectObsidianExclusionsName)
+      .setDesc(strings.respectObsidianExclusionsDesc)
       .addToggle((t) =>
         t.setValue(this.plugin.settings.respectObsidianExclusions).onChange(async (v) => {
           this.plugin.settings.respectObsidianExclusions = v;
@@ -79,8 +81,8 @@ export class FastGraphSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("최대 노드 수")
-      .setDesc("이 수를 넘으면 경고를 표시")
+      .setName(strings.maxNodesName)
+      .setDesc(strings.maxNodesDesc)
       .addText((t) =>
         t.setValue(String(this.plugin.settings.maxNodes)).onChange(async (v) => {
           const n = parseInt(v, 10);
