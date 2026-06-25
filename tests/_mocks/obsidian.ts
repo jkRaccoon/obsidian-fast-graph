@@ -1,4 +1,8 @@
 // tests/_mocks/obsidian.ts
+export const moment = {
+  locale: () => "en",
+};
+
 export class FakeMetadataCache {
   resolvedLinks: Record<string, Record<string, number>> = {};
   /** Per-path tag overrides for tag-grouping tests. */
